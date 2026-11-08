@@ -2,7 +2,15 @@
   "schemaVersion": 1,
   "name": "a/copycat",
   "description": "A dance game you play with your camera: copy the ghost, score points, post your own dances and music, and build the game with us",
-  "rules": [],
+  "rules": [
+    "Only post music everyone may share and dance to: CC BY, CC BY-SA, CC0, public domain, or your own.",
+    "Credit every song's artist and license.",
+    "Keep dances, titles and videos friendly for everyone."
+  ],
   "roles": [],
-  "categories": []
+  "categories": ["dances", "music", "ghosts", "game"],
+  "aboutArtifact": "copycat",
+  "pinnedArtifacts": ["copycat"],
+  "avatar": "assets/logo.png",
+  "cover": "assets/banner.webp"
 }

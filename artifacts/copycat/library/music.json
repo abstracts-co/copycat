@@ -1,0 +1,152 @@
+{
+ "format": "copycat/music@1",
+ "title": "Starter pack",
+ "by": "Copycat",
+ "about": "Creative Commons dance tracks found through Openverse. Each one names its artist and license.",
+ "tracks": [
+  {
+   "title": "Dance with me",
+   "artist": "Manhat10",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=1215805&format=mp32",
+   "page": "https://www.jamendo.com/track/1215805",
+   "license": "CC BY 3.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+   "source": "jamendo",
+   "duration": 204.0,
+   "bpm": 115.9,
+   "firstBeat": 0.02,
+   "segment": [
+    74.567,
+    99.416
+   ]
+  },
+  {
+   "title": "Funk party 1",
+   "artist": "CJ Rattle",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=900207&format=mp32",
+   "page": "https://www.jamendo.com/track/900207",
+   "license": "CC BY-SA 3.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+   "source": "jamendo",
+   "duration": 178.0,
+   "bpm": 120.6,
+   "firstBeat": 0.14,
+   "segment": [
+    24.021,
+    55.861
+   ]
+  },
+  {
+   "title": "Disco Theme",
+   "artist": "Sunsearcher",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=364882&format=mp32",
+   "page": "https://www.jamendo.com/track/364882",
+   "license": "CC BY-SA 2.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/de/",
+   "source": "jamendo",
+   "duration": 145.0,
+   "bpm": 125.6,
+   "firstBeat": 0.39,
+   "segment": [
+    92.11,
+    122.683
+   ]
+  },
+  {
+   "title": "Electro funk",
+   "artist": "iNDEX",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=1447766&format=mp32",
+   "page": "https://www.jamendo.com/track/1447766",
+   "license": "CC BY-SA 3.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+   "source": "jamendo",
+   "duration": 234.0,
+   "bpm": 131.1,
+   "firstBeat": 0.04,
+   "segment": [
+    172.122,
+    201.413
+   ]
+  },
+  {
+   "title": "Big Disco Ball",
+   "artist": "Josh Woodward",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=582248&format=mp32",
+   "page": "https://www.jamendo.com/track/582248",
+   "license": "CC BY 3.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+   "source": "jamendo",
+   "duration": 235.0,
+   "bpm": 92.3,
+   "firstBeat": 0.505,
+   "segment": [
+    185.12,
+    216.323
+   ]
+  },
+  {
+   "title": "Solar Ones (hip hop beat)",
+   "artist": "Capashen",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=610230&format=mp32",
+   "page": "https://www.jamendo.com/track/610230",
+   "license": "CC BY-SA 2.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/fr/",
+   "source": "jamendo",
+   "duration": 177.0,
+   "bpm": 94.1,
+   "firstBeat": 0.02,
+   "segment": [
+    122.443,
+    153.049
+   ]
+  },
+  {
+   "title": "DANSE DISCO",
+   "artist": "I'M FRESH! YOU'RE PRETTY!",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=1086669&format=mp32",
+   "page": "https://www.jamendo.com/track/1086669",
+   "license": "CC BY-SA 3.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+   "source": "jamendo",
+   "duration": 182.0,
+   "bpm": 143.7,
+   "firstBeat": 0.115,
+   "segment": [
+    137.067,
+    163.789
+   ]
+  },
+  {
+   "title": "Neo Disco",
+   "artist": "DJ STIVIT",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=1300781&format=mp32",
+   "page": "https://www.jamendo.com/track/1300781",
+   "license": "CC BY-SA 3.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+   "source": "jamendo",
+   "duration": 251.0,
+   "bpm": 86.9,
+   "firstBeat": 0.605,
+   "segment": [
+    202.216,
+    235.358
+   ]
+  },
+  {
+   "title": "STRANGE NIGHT DANCE",
+   "artist": "Egor Budennyy",
+   "url": "https://prod-1.storage.jamendo.com/?trackid=1570864&format=mp32",
+   "page": "https://www.jamendo.com/track/1570864",
+   "license": "CC BY 3.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+   "source": "jamendo",
+   "duration": 234.0,
+   "bpm": 160.0,
+   "firstBeat": 0.36,
+   "segment": [
+    180.36,
+    204.36
+   ]
+  }
+ ]
+}
