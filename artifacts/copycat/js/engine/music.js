@@ -48,12 +48,15 @@ export class YouTubeClock {
   constructor(song) {
     this.song = song; this.state = -1; this.last = null;
     this.box = Object.assign(document.createElement('div'), { className: 'yt-window' });
-    const slot = document.createElement('div');
-    this.box.append(slot, Object.assign(document.createElement('p'), { className: 'yt-hint', textContent: 'Tap the video to start' }));
+    // The art origin serves Referrer-Policy: no-referrer, and YouTube's player refuses to load without one (error 153).
+    const frame = Object.assign(document.createElement('iframe'), {
+      src: `https://www.youtube.com/embed/${song.youtube}?enablejsapi=1&playsinline=1&rel=0&origin=${encodeURIComponent(location.origin)}`,
+      allow: 'autoplay; encrypted-media', referrerPolicy: 'strict-origin-when-cross-origin', title: song.title, width: 200, height: 200,
+    });
+    this.box.append(frame, Object.assign(document.createElement('p'), { className: 'yt-hint', textContent: 'Tap to start the song' }));
     document.getElementById('app').append(this.box);
     this.loaded = loadYouTube().then((YT) => new Promise((resolve, reject) => {
-      this.player = new YT.Player(slot, {
-        width: 200, height: 200, videoId: song.youtube, playerVars: { playsinline: 1, rel: 0 },
+      this.player = new YT.Player(frame, {
         events: {
           onReady: () => resolve(),
           onError: () => reject(new Error('This YouTube video won’t play here.')),
@@ -80,6 +83,22 @@ export class YouTubeClock {
     return this.last.a + Math.min(1, p - this.last.p);
   }
   stop() { clearTimeout(this.hint); this.player?.destroy?.(); this.box.remove(); }
+}
+
+/** A YouTube song behind the audio element interface the song page uses. */
+export class YouTubeAudio extends EventTarget {
+  constructor(song) {
+    super();
+    this.clock = new YouTubeClock(song);
+    this.clock.ready().then(() => { this.duration = this.clock.duration; this.dispatchEvent(new Event('loadedmetadata')); }, () => this.dispatchEvent(new Event('error')));
+    this.tick = setInterval(() => { if (!this.clock.paused) this.dispatchEvent(new Event('timeupdate')); }, 250);
+  }
+  get paused() { return this.clock.paused && !this.starting; }
+  get currentTime() { return this.clock.now(); }
+  set currentTime(t) { this.clock.seek(t); }
+  play() { this.starting = true; this.dispatchEvent(new Event('play')); return this.clock.resume().finally(() => { this.starting = false; }); }
+  pause() { this.starting = false; this.clock.pause(); this.dispatchEvent(new Event('pause')); }
+  stop() { clearInterval(this.tick); this.clock.stop(); }
 }
 
 export const makeClock = (song, file = null) => (song.youtube && !file ? new YouTubeClock(song) : new SongClock(song, file));

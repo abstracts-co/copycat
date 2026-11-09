@@ -47,7 +47,7 @@ Each file must be under 5 MB and the folder under 10 MB, so keep dances to about
 - `mode`: `upper` scores arms (works sitting at a laptop); `full` also needs feet in view.
 - `privacy`: the creator recorded as a silhouette.
 - `song.source: "upload"` with `song.file: "song.wav"`: the dancer imported the song, and the post carries the clip. The app plays that file, so `clip.start` is 0.
-- `song.source: "youtube"` with `song.youtube: "<video id>"`: the song plays in YouTube's own embedded player, in a 200×200 window (YouTube's minimum; it must stay visible), and the player's position is the clock. `url` is the watch page.
+- `song.source: "youtube"` with `song.youtube: "<video id>"`: the song plays in YouTube's own embedded player, kept invisible so only the audio is heard; it shows only when the browser needs a tap on it to start. The player's position is the clock. `url` is the watch page.
 - `song.source: "file"` (older dances): the song stayed on the creator's device; players pick their own copy.
 - `credit`: who is in the video when it isn't the poster (a Creative Commons video, for example).
 
