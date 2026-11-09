@@ -1,4 +1,5 @@
 import { cleanSong } from '../data/format.js';
+import { HOST } from '../data/store.js';
 
 /** The song is the clock: dance time comes from the audio position, smoothed between coarse currentTime updates. */
 export class SongClock {
@@ -122,9 +123,7 @@ export const searchSongs = async (q) => {
   })).filter(Boolean);
 };
 
-const YOUTUBE_KEY = '';
-const youtubeSong = ({ id, title, artist, artwork }) => cleanSong({ id: `youtube:${id}`, title, artist, artwork, url: `https://www.youtube.com/watch?v=${id}`, page: `https://www.youtube.com/watch?v=${id}`, source: 'youtube', youtube: id });
-const decode = (s) => new DOMParser().parseFromString(String(s ?? ''), 'text/html').documentElement.textContent;
+const youtubeSong = ({ id, title, artist, artwork, duration }) => cleanSong({ id: `youtube:${id}`, title, artist, artwork, duration, url: `https://www.youtube.com/watch?v=${id}`, page: `https://www.youtube.com/watch?v=${id}`, source: 'youtube', youtube: id });
 export const youtubeId = (text) => text.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/)?.[1] ?? null;
 export const youtubeLink = async (id) => {
   const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`);
@@ -143,14 +142,11 @@ export const suggestYouTube = (q) => new Promise((resolve) => {
   document.head.append(script);
 });
 export const searchYouTube = async (q) => {
-  if (!YOUTUBE_KEY) throw new Error('YouTube search isn’t switched on yet. Paste a YouTube link instead.');
   if (found.has(q)) return found.get(q);
-  const url = new URL('https://www.googleapis.com/youtube/v3/search');
-  url.search = new URLSearchParams({ part: 'snippet', type: 'video', videoEmbeddable: 'true', videoCategoryId: '10', maxResults: '15', q, key: YOUTUBE_KEY });
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(r.status === 403 ? 'YouTube search is busy today. Paste a YouTube link instead.' : 'YouTube search isn’t working right now.');
+  const r = await fetch(`${HOST}/api/youtube/search?q=${encodeURIComponent(q)}`).catch(() => null);
+  if (!r?.ok) throw new Error('YouTube search isn’t working right now. Paste a YouTube link instead.');
   const { items = [] } = await r.json();
-  const songs = items.map((x) => youtubeSong({ id: x.id?.videoId, title: decode(x.snippet?.title), artist: decode(x.snippet?.channelTitle), artwork: x.snippet?.thumbnails?.medium?.url })).filter((s) => s?.youtube);
+  const songs = items.map((x) => youtubeSong({ id: x.id, title: x.title, artist: x.channel, artwork: x.thumbnail, duration: x.duration })).filter((s) => s?.youtube);
   found.set(q, songs);
   return songs;
 };
