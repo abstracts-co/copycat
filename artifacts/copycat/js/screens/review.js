@@ -11,23 +11,26 @@ export const ReviewView = ({ params }) => {
   const [title, setTitle] = useState(params.title ?? ''), [hashtags, setHashtags] = useState(params.hashtags ?? '');
   const [start, setStart] = useState(params.trim?.start ?? 0), [end, setEnd] = useState(params.trim?.end ?? result.duration), [playhead, setPlayhead] = useState(0);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(null);
-  const url = useRef(URL.createObjectURL(result.video));
+  const url = useRef(URL.createObjectURL(result.video)), trim = useRef();
+  trim.current = { start, end };
   useEffect(() => {
     const v = video.current;
-    audio.current = choice.song.url ? new Audio(choice.song.url) : null;
-    const a = audio.current;
+    const a = audio.current = choice.song.url ? new Audio(choice.song.url) : null;
     const onTime = () => {
       if (editing.current) return;
+      const { start, end } = trim.current;
       setPlayhead(v.currentTime);
       if (v.currentTime >= end - 0.04) { v.currentTime = start; if (a) a.currentTime = choice.start + start; }
       if (a && Math.abs(a.currentTime - (choice.start + v.currentTime)) > 0.15) a.currentTime = choice.start + v.currentTime;
     };
+    const onPlaying = () => a?.play().catch(() => {}), onPause = () => a?.pause();
+    const ready = () => { setLoading(false); v.currentTime = trim.current.start; v.play().catch(() => {}); };
     v.addEventListener('timeupdate', onTime);
-    v.addEventListener('playing', () => a?.play().catch(() => {}));
-    v.addEventListener('pause', () => a?.pause());
-    v.addEventListener('loadeddata', () => { setLoading(false); v.currentTime = start; v.play().catch(() => {}); }, { once: true });
-    return () => { v.removeEventListener('timeupdate', onTime); a?.pause(); v.pause(); };
-  }, [start, end]);
+    v.addEventListener('playing', onPlaying);
+    v.addEventListener('pause', onPause);
+    if (v.readyState >= 2) ready(); else v.addEventListener('loadeddata', ready, { once: true });
+    return () => { v.removeEventListener('timeupdate', onTime); v.removeEventListener('playing', onPlaying); v.removeEventListener('pause', onPause); v.removeEventListener('loadeddata', ready); a?.pause(); v.pause(); };
+  }, []);
   useEffect(() => () => URL.revokeObjectURL(url.current), []);
   const onEditing = (on) => {
     const v = video.current; editing.current = on;
@@ -39,7 +42,7 @@ export const ReviewView = ({ params }) => {
   const post = async () => {
     video.current.pause(); setBusy('publish');
     try {
-      const r = await publish(draft());
+      const r = await publish({ ...draft(), title: title.trim() || choice.song.title?.slice(0, 80) || 'My dance' });
       if (params.draftId) drafts.remove(params.draftId);
       toast(r.downloaded ? 'Downloaded. Post it on a/copycat.' : 'Published');
       nav.home();
@@ -63,6 +66,6 @@ export const ReviewView = ({ params }) => {
   </div></div>
   <div class="row" style="gap:12px;padding:12px 20px calc(12px + var(--safe-bottom));background:#000">
     <${Button} size="large" full label="Keep draft" disabled=${!!busy} onClick=${keep} />
-    <${Button} style="glassProminent" size="large" full disabled=${!!busy || loading || !title.trim() || length < 0.5} onClick=${post}>${busy === 'publish' ? html`<${Spinner} />` : 'Publish dance'}</${Button}>
+    <${Button} style="glassProminent" size="large" full disabled=${!!busy || loading || length < 0.5} onClick=${post}>${busy === 'publish' ? html`<${Spinner} />` : 'Publish dance'}</${Button}>
   </div>`;
 };
