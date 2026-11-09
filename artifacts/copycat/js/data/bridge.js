@@ -27,4 +27,8 @@ export const bridge = {
   get available() { return !!this.info; },
   call,
 };
-bridge.hello = call('hello', {}, 1500).then((v) => { bridge.info = v; return v; }).catch(() => null);
+const greet = async () => {
+  for (let i = 0; i < 4; i++) { try { return await call('hello', {}, 600); } catch (e) { if (e.code !== 'unsupported' || !embedded) return null; } }
+  return null;
+};
+bridge.hello = greet().then((v) => { bridge.info = v; return v; });

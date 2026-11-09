@@ -67,6 +67,7 @@ const layout = () => {
 const start = async () => {
   layout();
   const focus = document.querySelector('meta[name="copycat-dance"]')?.content;
+  if (focus) store.set({ browsing: true });
   render(html`<${App} />`, document.getElementById('app'));
   const info = await bridge.hello;
   if (info?.community) store.set({ community: info.community });
