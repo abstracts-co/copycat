@@ -151,7 +151,7 @@ export const RecordingFlow = ({ params }) => {
     if (st.recorder || st.starting) return;
     st.starting = true;
     try {
-      st.clock = makeClock(choice.song, choice.file);
+      if (!st.clock?.live) st.clock = makeClock(choice.song, choice.file);
       await st.clock.ready();
       await st.clock.play(choice.start);
       st.recorder = new DanceRecorder(stage, tracker, { privacy });
@@ -169,6 +169,13 @@ export const RecordingFlow = ({ params }) => {
     if (result.duration < 1.5) { st.stopping = false; setPhase({ name: 'idle' }); return; }
     nav.replace('review', { result, choice: { ...choice, length: Math.min(choice.length, result.duration) }, privacy });
   };
+  useEffect(() => {
+    if (!choice) return;
+    const clock = makeClock(choice.song, choice.file);
+    s.current.clock = clock;
+    clock.ready().then(() => clock.seek(choice.start)).catch(() => {});
+    return () => { if (s.current.clock === clock && !s.current.recorder) { clock.stop(); s.current.clock = null; } };
+  }, [choice]);
   useEffect(() => () => { s.current.clock?.stop(); s.current.recorder?.cancel(); }, []);
 
   const onRecord = () => {
@@ -216,10 +223,16 @@ export const PlayingFlow = ({ params }) => {
   const s = useRef({ align: new GhostAlign() });
   const { camera, retry } = useCameraStage(host, frame);
 
+  const prewarm = () => {
+    if (s.current.clock?.live) return;
+    const clock = makeClock(dance.song, params.file ?? null);
+    s.current.clock = clock;
+    clock.ready().then(() => clock.seek(dance.clip.start)).catch(() => {});
+  };
   useEffect(() => {
     if (!dance) return;
     let gone = false;
-    loadPlayable(dance).then((p) => { if (gone) return; s.current.playable = p; setSetup(party ? 'armed' : 'ready'); if (party) s.current.armedAt = 0; }).catch((e) => !gone && setError(e.message));
+    loadPlayable(dance).then((p) => { if (gone) return; s.current.playable = p; prewarm(); setSetup(party ? 'armed' : 'ready'); if (party) s.current.armedAt = 0; }).catch((e) => !gone && setError(e.message));
     return () => { gone = true; s.current.clock?.stop(); s.current.playable?.ghost.pause(); };
   }, [dance?.id]);
   useEffect(() => { if (party) party.attachPlay({ ready: (r) => { s.current.partyReady = r; }, startAt: (at) => { s.current.partyStart = at; } }); return () => party?.detachPlay(); }, [party]);
@@ -236,7 +249,7 @@ export const PlayingFlow = ({ params }) => {
     if (st.begun) return; st.begun = true;
     const scorer = new Scorer({ frames: st.playable.pose.frames, length: st.playable.pose.length, mode: d.mode, aspect: STAGE.aspect }, st.viewAspect ?? STAGE.aspect, onWindow);
     st.scorer = scorer;
-    st.clock = makeClock(d.song, params.file ?? null);
+    if (!st.clock?.live) st.clock = makeClock(d.song, params.file ?? null);
     try { await st.clock.ready(); } catch (e) { setError(e.message); return; }
     setSetup('playing');
     await st.clock.play(d.clip.start).catch(() => {});
@@ -290,7 +303,7 @@ export const PlayingFlow = ({ params }) => {
     if (paused) { st.clock.resume(); st.playable.ghost.play(); } else { st.clock.pause(); st.playable.ghost.pause(); }
     setPaused(!paused);
   };
-  const restart = () => { const st = s.current; st.clock?.stop(); s.current = { align: new GhostAlign(), playable: st.playable }; setResult(null); setHud({ score: 0, combo: 0 }); setPaused(false); setSetup('ready'); };
+  const restart = () => { const st = s.current; st.clock?.stop(); s.current = { align: new GhostAlign(), playable: st.playable }; prewarm(); setResult(null); setHud({ score: 0, combo: 0 }); setPaused(false); setSetup('ready'); };
   const close = () => { s.current.clock?.stop(); s.current.playable?.ghost.pause(); if (party) party.leaveRound(); nav.pop(); };
 
   if (!dance) return html`<${Empty} title="This dance is gone." />`;

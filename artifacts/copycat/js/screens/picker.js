@@ -2,7 +2,7 @@ import { html, useStore, useEffect, useState, useRef, clock, clockTenths } from 
 import { Icon } from '../icons.js';
 import { Button, Media, NavBar, ProgressView, TrimStrip, Spinner } from '../ui.js';
 import { store, nav, homeModel } from '../data/store.js';
-import { preview, importedSong, youtubeId, youtubeLink, searchYouTube, suggestYouTube } from '../engine/music.js';
+import { preview, importedSong, searchApple } from '../engine/music.js';
 
 const STARTER = new URL('../../library/music.json', import.meta.url);
 let starter = null;
@@ -11,22 +11,20 @@ const loadStarter = () => (starter ??= fetch(STARTER).then((r) => r.json()).then
 const usePreview = () => { const [s, set] = useState(preview.state); useEffect(() => preview.subscribe(set), []); return s; };
 
 /**
- * Find your sound: search YouTube as you type, paste a YouTube link or import a song file, trim the clip,
+ * Find your sound: search Apple's catalog as you type or import a song file, trim the clip,
  * preview it on a loop and use it. Replaces the iPhone picker's Apple Music and Spotify catalogs.
  */
 export const MusicPicker = ({ asSheet, onUse, close }) => {
   const feed = useStore(store, (s) => s.feed), packs = useStore(store, (s) => s.packs);
   const [query, setQuery] = useState(''), [results, setResults] = useState([]), [loading, setLoading] = useState(false), [error, setError] = useState(null);
   const [candidate, setCandidate] = useState(null), [start, setStart] = useState(0), [end, setEnd] = useState(30), [starterTracks, setStarter] = useState([]);
-  const [suggestions, setSuggestions] = useState([]), [searched, setSearched] = useState('');
-  const resume = useRef(false), file = useRef(null), p = usePreview();
+  const resume = useRef(false), file = useRef(null), latest = useRef(''), p = usePreview();
   const typed = query.trim();
   useEffect(() => {
-    if (!typed || typed === searched || youtubeId(typed)) { setSuggestions([]); return; }
-    let live = true;
-    const t = setTimeout(() => suggestYouTube(typed).then((list) => live && setSuggestions(list)), 150);
-    return () => { live = false; clearTimeout(t); };
-  }, [typed, searched]);
+    if (!typed) { latest.current = ''; setResults([]); setLoading(false); return; }
+    const t = setTimeout(() => search(typed), 250);
+    return () => clearTimeout(t);
+  }, [typed]);
   useEffect(() => { loadStarter().then(setStarter); return () => preview.stop(); }, []);
   const trending = [...homeModel(feed.dances).trendingSounds.map((d) => d.song), ...packs.flatMap((p) => p.tracks), ...starterTracks].filter((s, i, a) => s.url && a.findIndex((x) => x.url === s.url) === i);
   const show = (song, f = null, autoplay = true) => {
@@ -40,12 +38,11 @@ export const MusicPicker = ({ asSheet, onUse, close }) => {
   };
   const search = async (text = query) => {
     const q = text.trim();
-    if (!q) return;
-    setQuery(q); setSearched(q); setSuggestions([]); setResults([]); setLoading(true); setError(null);
-    try {
-      const id = youtubeId(q);
-      if (id) show(await youtubeLink(id)); else setResults(await searchYouTube(q));
-    } catch (e) { setError(e.message); } finally { setLoading(false); }
+    if (!q || q === latest.current) return;
+    latest.current = q; setLoading(true); setError(null);
+    try { const songs = await searchApple(q); if (latest.current === q) setResults(songs); }
+    catch (e) { if (latest.current === q) setError(e.message); }
+    finally { if (latest.current === q) setLoading(false); }
   };
   const importFile = () => file.current.click();
   const onFile = async () => { const f = file.current.files[0]; if (!f) return; try { const { song, file: fl } = await importedSong(f); show(song, fl); } catch (e) { setError(e.message); } };
@@ -58,9 +55,9 @@ export const MusicPicker = ({ asSheet, onUse, close }) => {
     <input type="file" accept="audio/*" hidden ref=${file} onChange=${onFile} />
     <div class=${asSheet ? '' : 'scroll'}><div class="col" style=${`gap:16px;${asSheet ? '' : 'padding:20px'}`}>
       <form class="textfield" onSubmit=${(e) => { e.preventDefault(); search(); }}>
-        <input type="search" placeholder="Search YouTube or paste a link" value=${query} onInput=${(e) => { setQuery(e.target.value); setError(null); }} enterkeyhint="search" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Search YouTube" />
+        <input type="search" placeholder="Search songs" value=${query} onInput=${(e) => { setQuery(e.target.value); setError(null); }} enterkeyhint="search" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Search songs" />
         <button type="submit" class="accent" style="min-width:44px;min-height:44px" disabled=${!query.trim()}>Search</button></form>
-      ${loading && html`<${ProgressView} label="Searching" />`}
+      ${loading && !results.length && html`<${ProgressView} label="Searching" />`}
       ${error && html`<p class="footnote" style="color:#ff9f0a">${error}</p>`}
       ${candidate && html`<div class="col" style="gap:10px;padding:16px;border-radius:18px;background:rgba(255,255,255,0.04)">
         <div class="row" style="gap:12px"><${Cover} song=${candidate.song} />
@@ -73,9 +70,8 @@ export const MusicPicker = ({ asSheet, onUse, close }) => {
         <${Button} style="glassProminent" size="large" full label="Use this song" disabled=${p.loading} onClick=${use} />
       </div>`}
       ${!query.trim() && !candidate && html`<span class="headline">Trending sounds</span>${trending.length ? html`<div class="col">${trending.map(row)}</div>` : html`<p class="secondary">Search for a song or import an audio file.</p>`}`}
-      ${typed && typed !== searched ? html`<div class="col" role="listbox" aria-label="Suggestions">${suggestions.map((s) => html`<button class="row" role="option" style="gap:12px;width:100%;min-height:44px;padding:10px 0;text-align:left" onClick=${() => search(s)}><span class="secondary"><${Icon} name="magnifyingglass" /></span><span class="line1">${s}</span></button>`)}</div>`
-        : typed && html`<div class="col">${results.map(row)}</div>`}
-      <p class="footnote secondary">Songs play from YouTube in its own player. Imported files post with your dance, so upload only music you made or that’s free to share.</p>
+      ${typed && html`<div class="col">${results.map(row)}</div>`}
+      <p class="footnote secondary">Songs are 30-second previews from Apple Music. Imported files post with your dance, so upload only music you made or that’s free to share.</p>
     </div></div>`;
 };
 

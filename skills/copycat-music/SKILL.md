@@ -15,7 +15,7 @@ Every track must be one the whole community may dance to and share: **CC BY, CC 
 
 ## Find tracks
 
-- **YouTube**: the app's music picker searches YouTube as you type (through `https://abstracts.co/api/youtube/search?q=`) and takes pasted links. The song plays in YouTube's own player, so the video stays on YouTube and nothing is copied. Packs can't list YouTube songs: a pack is for music Copycat may share.
+- **Apple Music previews**: the app's music picker searches Apple's catalog as you type (`https://itunes.apple.com/search?media=music&entity=song&term=`) and plays each song's 30-second preview, linked to the song on Apple Music. Packs can't list them: a pack is for music Copycat may share in full. The song plays in YouTube's own player, so the video stays on YouTube and nothing is copied. Packs can't list YouTube songs: a pack is for music Copycat may share.
 - **Openverse** (`https://api.openverse.org/v1/audio/?q=funk&license_type=commercial,modification&category=music`) searches Jamendo, ccMixter, Wikimedia and others. Its `url` field plays directly.
 - **Jamendo** tracks play from `https://prod-1.storage.jamendo.com/?trackid=<id>&format=mp32`.
 - **Internet Archive** netlabel releases (`https://archive.org/advancedsearch.php?q=collection:netlabels`) often carry CC licenses; use the direct `https://archive.org/download/<item>/<file>.mp3` link.

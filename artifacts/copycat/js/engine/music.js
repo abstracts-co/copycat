@@ -1,38 +1,71 @@
 import { cleanSong } from '../data/format.js';
 import { HOST } from '../data/store.js';
 
+const wav = (pcm, rate) => {
+  const out = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const text = (at, s) => { for (let i = 0; i < s.length; i++) out.setUint8(at + i, s.charCodeAt(i)); };
+  text(0, 'RIFF'); out.setUint32(4, 36 + pcm.length * 2, true); text(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+  out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); text(36, 'data'); out.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
+  return new Blob([out], { type: 'audio/wav' });
+};
+
+// iPhone Safari plays sound only from an element that first played during a tap. Every song shares this one element,
+// and the first tap anywhere plays a moment of silence on it, so songs can start later from a countdown or a timer.
+const player = new Audio();
+player.preload = 'auto';
+const unlock = () => {
+  removeEventListener('click', unlock, true); removeEventListener('touchend', unlock, true);
+  if (player.getAttribute('src')) return;
+  const silence = URL.createObjectURL(wav(new Float32Array(2400), 24000));
+  player.src = silence;
+  player.play().catch(() => {}).finally(() => { if (player.src === silence) { player.pause(); player.removeAttribute('src'); player.load(); } URL.revokeObjectURL(silence); });
+};
+addEventListener('click', unlock, true); addEventListener('touchend', unlock, true);
+let owner = null;
+
 /** The song is the clock: dance time comes from the audio position, smoothed between coarse currentTime updates. */
 export class SongClock {
   constructor(song, file = null) {
-    this.song = song;
-    this.audio = new Audio();
-    this.audio.preload = 'auto';
-    this.audio.src = file ? URL.createObjectURL(file) : song.url;
-    this.anchor = null;
+    owner?.stop(); owner = this;
+    this.song = song; this.file = file; this.audio = player; this.anchor = null;
+    this.src = file ? URL.createObjectURL(file) : song.url;
+    player.src = this.src;
   }
-  ready() {
-    if (this.audio.readyState >= 3) return Promise.resolve();
+  get live() { return owner === this; }
+  load() {
+    if (player.readyState >= 3) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const done = () => { clean(); resolve(); }, fail = () => { clean(); reject(new Error('This song won’t play right now.')); };
-      const clean = () => { this.audio.removeEventListener('canplay', done); this.audio.removeEventListener('error', fail); };
-      this.audio.addEventListener('canplay', done); this.audio.addEventListener('error', fail);
-      this.audio.load();
+      const clean = () => { player.removeEventListener('canplay', done); player.removeEventListener('error', fail); };
+      player.addEventListener('canplay', done); player.addEventListener('error', fail);
+      player.load();
     });
   }
-  get duration() { return this.audio.duration || this.song.duration || 0; }
-  set muted(v) { this.audio.muted = v; }
-  async play(from) { this.audio.currentTime = Math.max(0, from); this.anchor = null; await this.audio.play(); }
-  pause() { this.audio.pause(); }
-  resume() { this.anchor = null; return this.audio.play(); }
-  seek(t) { this.audio.currentTime = Math.max(0, t); this.anchor = null; }
-  get paused() { return this.audio.paused; }
+  async ready() {
+    try { await this.load(); } catch (e) {
+      const fresh = this.song.apple && !this.file && this.live ? await applePreview(this.song.apple).catch(() => null) : null;
+      if (!fresh || !this.live) throw e;
+      this.src = fresh; player.src = fresh; await this.load();
+    }
+  }
+  get duration() { return (this.live && player.duration) || this.song.duration || 0; }
+  set muted(v) { if (this.live) player.muted = v; }
+  async play(from) { if (!this.live) return; player.currentTime = Math.max(0, from); this.anchor = null; await player.play(); }
+  pause() { if (this.live) player.pause(); }
+  resume() { this.anchor = null; return this.live ? player.play() : Promise.resolve(); }
+  seek(t) { if (this.live) player.currentTime = Math.max(0, t); this.anchor = null; }
+  get paused() { return !this.live || player.paused; }
   now() {
-    const a = this.audio.currentTime, p = performance.now() / 1000;
-    if (this.audio.paused) return a;
+    const a = this.live ? player.currentTime : 0, p = performance.now() / 1000;
+    if (this.paused) return a;
     if (!this.anchor || Math.abs(this.anchor.a + (p - this.anchor.p) - a) > 0.08) this.anchor = { a, p };
     return Math.max(a - 0.05, Math.min(a + 0.3, this.anchor.a + (p - this.anchor.p)));
   }
-  stop() { this.audio.pause(); if (this.audio.src.startsWith('blob:')) URL.revokeObjectURL(this.audio.src); this.audio.removeAttribute('src'); }
+  stop() {
+    if (owner === this) { owner = null; player.pause(); player.removeAttribute('src'); player.load(); }
+    if (this.file && this.src.startsWith('blob:')) URL.revokeObjectURL(this.src);
+  }
 }
 
 let youtubeApi = null;
@@ -82,7 +115,8 @@ export class YouTubeClock {
     if (!this.last || a !== this.last.a) this.last = { a, p };
     return this.last.a + Math.min(1, p - this.last.p);
   }
-  stop() { clearTimeout(this.hint); this.player?.destroy?.(); this.box.remove(); }
+  get live() { return !this.stopped; }
+  stop() { this.stopped = true; clearTimeout(this.hint); this.player?.destroy?.(); this.box.remove(); }
 }
 
 /** A YouTube song behind the audio element interface the song page uses. */
@@ -170,6 +204,23 @@ export const searchYouTube = async (q) => {
   return songs;
 };
 
+const APPLE = 'https://itunes.apple.com';
+const appleSong = (r) => cleanSong({
+  id: `apple:${r.trackId}`, apple: r.trackId, title: r.trackName, artist: r.artistName, url: r.previewUrl, artwork: r.artworkUrl100?.replace('100x100bb', '300x300bb'),
+  page: r.trackViewUrl, license: 'Apple Music', licenseUrl: r.trackViewUrl, source: 'apple',
+});
+const applePreview = async (id) => (await (await fetch(`${APPLE}/lookup?id=${id}`)).json()).results?.[0]?.previewUrl ?? null;
+/** Apple's catalog: a 30-second preview of almost any song, played by Copycat's own audio element. */
+export const searchApple = async (q) => {
+  if (found.has(`apple:${q}`)) return found.get(`apple:${q}`);
+  const r = await fetch(`${APPLE}/search?${new URLSearchParams({ term: q, media: 'music', entity: 'song', limit: '25' })}`).catch(() => null);
+  if (!r?.ok) throw new Error(r?.status === 403 || r?.status === 429 ? 'Searching too fast. Try again in a moment.' : 'Search isn’t working right now.');
+  const { results = [] } = await r.json();
+  const songs = results.filter((x) => x.previewUrl).map(appleSong).filter(Boolean);
+  found.set(`apple:${q}`, songs);
+  return songs;
+};
+
 export const importedSong = (file) => new Promise((resolve, reject) => {
   const a = new Audio(URL.createObjectURL(file));
   a.addEventListener('loadedmetadata', () => { URL.revokeObjectURL(a.src); resolve({ song: { id: `file:${file.name}:${file.size}`, title: file.name.replace(/\.[^.]+$/, '').slice(0, 120), artist: '', source: 'file', duration: a.duration || 0 }, file }); }, { once: true });
@@ -183,10 +234,5 @@ export const clipAudio = async (file, start, length, rate = 24000) => {
   source.buffer = await ctx.decodeAudioData(await file.arrayBuffer());
   source.connect(ctx.destination);
   source.start(0, start, length);
-  const pcm = (await ctx.startRendering()).getChannelData(0), out = new DataView(new ArrayBuffer(44 + pcm.length * 2));
-  const text = (at, s) => { for (let i = 0; i < s.length; i++) out.setUint8(at + i, s.charCodeAt(i)); };
-  text(0, 'RIFF'); out.setUint32(4, 36 + pcm.length * 2, true); text(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
-  out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); text(36, 'data'); out.setUint32(40, pcm.length * 2, true);
-  for (let i = 0; i < pcm.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
-  return new Blob([out], { type: 'audio/wav' });
+  return wav((await ctx.startRendering()).getChannelData(0), rate);
 };
