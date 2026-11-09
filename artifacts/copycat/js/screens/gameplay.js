@@ -51,7 +51,7 @@ const useCameraStage = (host, onFrame, { audio = false } = {}) => {
  * have room at the sides long before the shoulders get small against its short height.
  */
 const framing = (pose, mode, aspect) => {
-  if (!pose) return { ready: false, message: null };
+  if (!pose) return { ready: false, message: 'Step into view' };
   const v = (j) => pose[j * 3 + 2] >= 0.35;
   if (!v(J.leftShoulder) || !v(J.rightShoulder) || !v(J.nose)) return { ready: false, message: 'Step back' };
   const span = Math.hypot((pose[J.leftShoulder * 3] - pose[J.rightShoulder * 3]) * aspect, pose[J.leftShoulder * 3 + 1] - pose[J.rightShoulder * 3 + 1]);
@@ -128,7 +128,7 @@ export const RecordingFlow = ({ params }) => {
     const c = stage.beginFx(), ctx = stage.fxCtx;
     stage.drawCropGuide();
     if (phase.name === 'armed') {
-      const f = recent ? framing(toDance(pose, danceCrop(stage.aspect)), 'upper', STAGE.aspect) : { ready: false, message: null };
+      const f = recent ? framing(toDance(pose, danceCrop(stage.aspect)), 'upper', STAGE.aspect) : { ready: false, message: 'Step into view' };
       if (f.message !== st.message) { st.message = f.message; tick((n) => n + 1); }
       if (f.ready) { st.readySince ??= now; if (now - st.readySince > 0.65) begin(countdownSeconds); } else st.readySince = null;
     }
@@ -164,7 +164,9 @@ export const RecordingFlow = ({ params }) => {
     const st = s.current; if (!st.recorder || st.stopping) return;
     st.stopping = true; setPhase({ name: 'finalizing' });
     st.clock?.stop();
-    const result = await st.recorder.stop();
+    let result;
+    try { result = await st.recorder.stop(); }
+    catch (e) { st.recorder = null; st.stopping = false; setPhase({ name: 'idle' }); return alertDialog({ title: 'Couldn’t save your dance', message: e.message }); }
     st.recorder = null;
     if (result.duration < 1.5) { st.stopping = false; setPhase({ name: 'idle' }); return; }
     nav.replace('review', { result, choice: { ...choice, length: Math.min(choice.length, result.duration) }, privacy });
@@ -269,7 +271,7 @@ export const PlayingFlow = ({ params }) => {
     if (playing && !paused && Math.abs(p.ghost.currentTime - (t + dance.clip.offset)) > 0.15 && t >= 0) p.ghost.currentTime = t + dance.clip.offset;
     stage.drawGhost(p.ghost, transform, opacity);
     if (setup === 'armed' || setup === 'countdown') {
-      const f = recent ? framing(pose, dance.mode, stage.aspect) : { ready: false, message: null };
+      const f = recent ? framing(pose, dance.mode, stage.aspect) : { ready: false, message: 'Step into view' };
       if (f.message !== st.message) { st.message = f.message; tick((n) => n + 1); }
       const ready = f.ready;
       if (party) {

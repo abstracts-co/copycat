@@ -55,8 +55,15 @@ export class DanceRecorder {
     if (this.coverAt !== null && !this.cover) this.cover = snapshot(this.canvas);
   }
   async stop() {
-    const done = (r) => new Promise((res) => { r.onstop = res; r.stop(); });
+    const done = (r) => new Promise((res) => {
+      if (!r || r.state === 'inactive') return res();
+      r.addEventListener('stop', res, { once: true });
+      r.addEventListener('error', res, { once: true });
+      setTimeout(res, 8000);
+      try { r.stop(); } catch { res(); }
+    });
     await Promise.all([done(this.video), done(this.ghostRec)]);
+    if (!this.videoChunks.length) throw new Error('The recording came out empty. Try again.');
     const duration = Math.min(this.elapsed, this.length);
     return {
       video: new Blob(this.videoChunks, { type: this.type }), ghost: new Blob(this.ghostChunks, { type: this.type }), type: this.type,
