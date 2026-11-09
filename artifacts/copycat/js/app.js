@@ -12,13 +12,12 @@ import { MusicPickerView } from './screens/picker.js';
 import { RecordingFlow, PlayingFlow } from './screens/gameplay.js';
 import { ReviewView } from './screens/review.js';
 import { CommentsView, SettingsView } from './screens/more.js';
-import { SignInView, OnboardingView } from './screens/signin.js';
 import { LobbyView, JoinView } from './screens/lobby.js';
 
 const ROUTES = {
   dance: DanceDetailView, song: SongPageView, sounds: SoundsView, dances: DanceHubView, profile: ProfileView, editProfile: EditProfileView,
   music: MusicPickerView, create: RecordingFlow, solo: PlayingFlow, review: ReviewView, comments: CommentsView, settings: SettingsView,
-  lobby: LobbyView, join: JoinView, onboarding: OnboardingView,
+  lobby: LobbyView, join: JoinView,
 };
 const TABS = [['home', 'Home', 'house', 'house.fill'], ['dance', 'Play', 'play.fill', 'play.fill'], ['profile', 'Profile', 'person.crop.circle', 'person.crop.circle.fill']];
 
@@ -29,15 +28,13 @@ const Root = () => {
   return html`<div class=${cls('screen', covered && 'covered')} style=${covered ? '' : 'animation:none'}>
     <div class="tab-pane" hidden=${tab !== 'home'}><${HomeView} /></div>
     <div class="tab-pane" hidden=${tab !== 'dance'}>${tab === 'dance' && !covered && html`<${PlayHubView} />`}</div>
-    <div class="tab-pane" hidden=${tab !== 'profile'}><${ProfileView} params=${{ handle: viewer?.username, own: true }} root /></div>
+    <div class="tab-pane" hidden=${tab !== 'profile'}><${ProfileView} params=${{ handle: viewer?.username, own: true }} root active=${tab === 'profile'} /></div>
     <nav class="tabbar glass" aria-label="Tabs">${TABS.map(([k, label, icon, on]) => html`<button class=${cls('tab', tab === k && 'on')} aria-current=${tab === k ? 'page' : undefined} onClick=${() => nav.tab(k)}><${Icon} name=${tab === k ? on : icon} />${label}</button>`)}</nav>
   </div>`;
 };
 
 const App = () => {
   const stack = useStore(store, (s) => s.stack);
-  const entered = useStore(store, (s) => s.onboarded || s.browsing);
-  if (!entered) return html`<${SignInView} /><${Overlays} />`;
   return html`<div class="stack">
     <${Root} />
     ${stack.map((r, i) => { const View = ROUTES[r.name]; return html`<div key=${r.id} class=${cls('screen', 'push-in', i < stack.length - 1 && 'covered')}><${View} params=${r.params} /></div>`; })}
@@ -67,17 +64,16 @@ const layout = () => {
 const start = async () => {
   layout();
   const focus = document.querySelector('meta[name="copycat-dance"]')?.content;
-  if (focus) store.set({ browsing: true });
   render(html`<${App} />`, document.getElementById('app'));
   const info = await bridge.hello;
   if (info?.community) store.set({ community: info.community });
   await loadFeed();
   const launch = info?.launch ?? Object.fromEntries(new URLSearchParams(location.search));
-  if (launch.room) { store.set({ browsing: true }); nav.push('lobby', { room: launch.room.toUpperCase() }); }
+  if (launch.room) nav.push('lobby', { room: launch.room.toUpperCase() });
   else if (focus || launch.dance) {
     const id = launch.dance ?? info?.artifact;
     const d = store.get().feed.dances.find((x) => x.id === id);
-    if (d) { store.set({ browsing: true }); nav.push('dance', { id: d.id }); }
+    if (d) nav.push('dance', { id: d.id });
   }
 };
 start();

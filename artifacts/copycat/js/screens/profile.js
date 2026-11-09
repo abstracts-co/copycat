@@ -6,18 +6,21 @@ import { bridge } from '../data/bridge.js';
 import { share, openOnAbstracts, openNotifications, guarded } from './actions.js';
 import { ReportSheet } from './more.js';
 
-export const ProfileView = ({ params, root }) => {
+export const ProfileView = ({ params, root, active }) => {
   const viewer = useStore(store, (s) => s.viewer);
   const handle = params?.handle ?? (root ? viewer?.username : null);
+  const [who, setWho] = useState(null);
+  useEffect(() => { if (root && active && !viewer) ensureViewer().catch((e) => setWho(e.code)); }, [root, active, viewer]);
+  const own = root || (!!viewer && viewer.username === handle);
+  const version = useStore(store, (s) => s.draftsVersion), [mine, setMine] = useState([]);
+  useEffect(() => { if (own) drafts.list().then(setMine); }, [version, own]);
   useStore(store, (s) => s.feed);
   useStore(store, (s) => s.profiles[handle]);
   useEffect(() => { if (handle) loadProfile(handle); }, [handle]);
   if (root && !handle) return html`<${NavBar} title="Profile" right=${html`<${Button} icon="bell" iconOnly label="Notifications" tint="tinted" onClick=${openNotifications} />`} />
-    <div class="scroll"><${Empty} icon="person.crop.circle" title="Your profile" message="Your abstracts account is your Copycat profile.">
-      <${Button} style="glassProminent" size="large" full label="Continue with abstracts" onClick=${guarded(() => ensureViewer())} /></${Empty}></div>`;
+    <div class="scroll"><${Empty} icon="person.crop.circle" title="Your profile" message=${who === 'signed_out' ? 'Sign in on abstracts to see your profile.' : 'Your abstracts account is your Copycat profile.'} /></div>`;
   const m = profileModel(handle), u = m.user;
-  const version = useStore(store, (s) => s.draftsVersion), [mine, setMine] = useState([]);
-  useEffect(() => { if (m.isOwner || root) drafts.list().then(setMine); }, [version, m.isOwner]);
+
   const ownerControls = html`<div class="row" style="gap:10px">
       <${Button} style="glassProminent" size="large" full class="headline" label="Edit" onClick=${() => nav.push('editProfile')} />
       <${Button} size="large" full icon="gearshape" iconOnly label="Settings" onClick=${() => nav.push('settings')} /></div>`;
@@ -36,7 +39,7 @@ export const ProfileView = ({ params, root }) => {
     </div>
     <div class="stats">${[[m.dances.length, 'Dances'], [m.likes, 'Likes'], [u.rep ?? 0, 'Rep']].map(([v, l]) => html`<div><span class="title3 semibold mono">${compact(v)}</span><span class="caption muted">${l}</span></div>`)}</div>
     ${m.isOwner ? ownerControls : root ? null : visitorControls}
-    <div class="grid3">${(m.isOwner || root ? mine : []).map((d) => html`<div style="position:relative">
+    <div class="grid3">${(own ? mine : []).map((d) => html`<div style="position:relative">
       <${Media} src=${d.coverUrl ??= URL.createObjectURL(d.result.cover)} /><div class="pending" style="border-radius:8px">
         <${Button} size="small" label="Edit draft" onClick=${() => nav.push('review', { result: d.result, choice: d.choice, privacy: d.privacy, title: d.title, hashtags: d.hashtagText, trim: d.trim, draftId: d.id })} />
         <span class="caption2 semibold line2">${d.title || 'Draft'}</span></div></div>`)}${m.dances.map((d) => html`<button onClick=${() => nav.push('dance', { id: d.id })} aria-label=${d.title}><${Media} src=${d.thumbnail} /></button>`)}</div>

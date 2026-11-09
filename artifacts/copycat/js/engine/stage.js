@@ -1,9 +1,9 @@
-import { J, STAGE, WORK, drawCrop } from './pose.js';
+import { J, STAGE, fitSize, drawMirrored, danceCrop } from './pose.js';
 import { reduceMotion } from '../lib.js';
 
 const VS = `#version 300 es
-in vec2 p; uniform vec3 xf; out vec2 uv;
-void main(){ uv = p; vec2 q = p * xf.x + xf.yz; gl_Position = vec4(q.x * 2.0 - 1.0, 1.0 - q.y * 2.0, 0.0, 1.0); }`;
+in vec2 p; uniform vec3 xf; uniform vec2 k; out vec2 uv;
+void main(){ uv = p; vec2 q = vec2((p.x * k.x * xf.x + xf.y) / k.y, p.y * xf.x + xf.z); gl_Position = vec4(q.x * 2.0 - 1.0, 1.0 - q.y * 2.0, 0.0, 1.0); }`;
 // The iPhone app's ghost_fragment: the creator's masked silhouette, tinted purple by brightness, at the chosen opacity.
 const FS = `#version 300 es
 precision mediump float; in vec2 uv; uniform sampler2D video; uniform float opacity; out vec4 o;
@@ -31,10 +31,10 @@ class GhostLayer {
     const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     this.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, this.tex);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-    this.u = { xf: gl.getUniformLocation(prog, 'xf'), opacity: gl.getUniformLocation(prog, 'opacity') };
+    this.u = { xf: gl.getUniformLocation(prog, 'xf'), k: gl.getUniformLocation(prog, 'k'), opacity: gl.getUniformLocation(prog, 'opacity') };
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
-  draw(source, transform, opacity) {
+  draw(source, transform, opacity, viewAspect) {
     const gl = this.gl; if (!gl) return;
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -43,6 +43,7 @@ class GhostLayer {
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
     try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); } catch { return; }
     gl.uniform3f(this.u.xf, transform[0], transform[1], transform[2]);
+    gl.uniform2f(this.u.k, STAGE.aspect, viewAspect);
     gl.uniform1f(this.u.opacity, opacity);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -120,63 +121,84 @@ export const drawPerimeter = (ctx, w, h, progress, time, scale) => {
 };
 
 /**
- * The camera stage: a 9:16 picture (camera, privacy silhouette or background swap), the creator's ghost over it,
- * and an effects layer for trails and progress. The picture and ghost are 540×960 canvases shown with
- * object-fit: cover; the effects layer is drawn at screen resolution through the same cover mapping.
+ * The camera stage: the whole camera picture (or the privacy silhouette or background swap) at the camera's own aspect,
+ * the creator's 9:16 ghost placed over it, and an effects layer for trails and progress. The picture and ghost canvases
+ * are shown with object-fit: cover; the effects layer is drawn at screen resolution through the same cover mapping.
  */
 export class Stage {
   constructor(host) {
     this.host = host;
-    this.picture = Object.assign(document.createElement('canvas'), { width: STAGE.w, height: STAGE.h, className: 'cover' });
-    this.ghostCanvas = Object.assign(document.createElement('canvas'), { width: STAGE.w, height: STAGE.h, className: 'cover' });
+    this.picture = Object.assign(document.createElement('canvas'), { width: 960, height: 540, className: 'cover' });
+    this.ghostCanvas = Object.assign(document.createElement('canvas'), { width: 960, height: 540, className: 'cover' });
     this.fx = document.createElement('canvas');
     host.append(this.picture, this.ghostCanvas, this.fx);
     this.ctx = this.picture.getContext('2d');
     this.ghost = new GhostLayer(this.ghostCanvas);
     this.fxCtx = this.fx.getContext('2d');
-    this.person = Object.assign(document.createElement('canvas'), { width: STAGE.w, height: STAGE.h });
+    this.person = Object.assign(document.createElement('canvas'), { width: 960, height: 540 });
     this.personCtx = this.person.getContext('2d');
     this.live = new Trails(LIVE_TINT); this.reference = new Trails(REFERENCE_TINT);
+    this.aspect = 16 / 9;
+  }
+  fit(video) {
+    const aspect = video.videoWidth / video.videoHeight;
+    if (!aspect || Math.abs(aspect - this.aspect) < 0.01 && this.sized) return;
+    const { w, h } = fitSize(aspect, 960);
+    for (const c of [this.picture, this.ghostCanvas, this.person]) { c.width = w; c.height = h; }
+    this.aspect = aspect; this.sized = true;
   }
   resize() {
     const r = this.host.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
-    const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+    const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr), pw = this.picture.width, ph = this.picture.height;
     if (this.fx.width !== w || this.fx.height !== h) { this.fx.width = w; this.fx.height = h; }
-    const s = Math.max(w / STAGE.w, h / STAGE.h);
-    this.cover = { s, ox: (w - STAGE.w * s) / 2, oy: (h - STAGE.h * s) / 2, w, h, dpr };
+    const s = Math.max(w / pw, h / ph);
+    this.cover = { s, ox: (w - pw * s) / 2, oy: (h - ph * s) / 2, w, h, dpr };
     return this.cover;
   }
-  map = (x, y) => [this.cover.ox + x * STAGE.w * this.cover.s, this.cover.oy + y * STAGE.h * this.cover.s];
+  map = (x, y) => [this.cover.ox + x * this.picture.width * this.cover.s, this.cover.oy + y * this.picture.height * this.cover.s];
   drawPicture(video, tracker, { privacy = false, background = null } = {}) {
-    const ctx = this.ctx;
-    if (!privacy && !background) { drawCrop(ctx, video, STAGE.w, STAGE.h, true); return; }
+    this.fit(video);
+    const ctx = this.ctx, W = this.picture.width, H = this.picture.height;
+    if (!privacy && !background) { drawMirrored(ctx, video, W, H); return; }
     const pc = this.personCtx;
-    pc.globalCompositeOperation = 'source-over'; pc.clearRect(0, 0, STAGE.w, STAGE.h);
-    if (privacy) { pc.fillStyle = '#262626'; pc.fillRect(0, 0, STAGE.w, STAGE.h); } else drawCrop(pc, video, STAGE.w, STAGE.h, true);
-    if (tracker?.hasMask) { pc.globalCompositeOperation = 'destination-in'; pc.drawImage(tracker.mask, 0, 0, WORK.w, WORK.h, 0, 0, STAGE.w, STAGE.h); }
-    else if (privacy) pc.clearRect(0, 0, STAGE.w, STAGE.h);
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, STAGE.w, STAGE.h);
-    if (background && !privacy) drawBackground(ctx, background.image, background.placement);
+    pc.globalCompositeOperation = 'source-over'; pc.clearRect(0, 0, W, H);
+    if (privacy) { pc.fillStyle = '#262626'; pc.fillRect(0, 0, W, H); } else drawMirrored(pc, video, W, H);
+    if (tracker?.hasMask) { pc.globalCompositeOperation = 'destination-in'; pc.drawImage(tracker.mask, 0, 0, W, H); }
+    else if (privacy) pc.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    if (background && !privacy) drawBackground(ctx, background.image, background.placement, W, H);
     ctx.drawImage(this.person, 0, 0);
   }
-  drawGhost(source, transform, opacity) { this.ghost.draw(source, transform, opacity); }
+  drawGhost(source, transform, opacity) { this.ghost.draw(source, transform, opacity, this.aspect); }
   clearGhost() { this.ghost.clear(); }
   beginFx() { const c = this.resize(); this.fxCtx.clearRect(0, 0, c.w, c.h); return c; }
+  /** Dims what a recording leaves out, so the dancer sees the 9:16 frame that will be kept. */
+  drawCropGuide() {
+    const crop = danceCrop(this.aspect);
+    if (crop.w > 0.98 && crop.h > 0.98) return;
+    const ctx = this.fxCtx, c = this.cover, [x0, y0] = this.map(crop.x, crop.y), [x1, y1] = this.map(crop.x + crop.w, crop.y + crop.h);
+    ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, x0, c.h); ctx.fillRect(x1, 0, c.w - x1, c.h); ctx.fillRect(x0, 0, x1 - x0, y0); ctx.fillRect(x0, y1, x1 - x0, c.h - y1);
+    ctx.restore();
+  }
   dispose() { this.picture.remove(); this.ghostCanvas.remove(); this.fx.remove(); }
 }
 
-export const drawBackground = (ctx, image, placement = { scale: 1, x: 0, y: 0 }) => {
-  const s = Math.max(STAGE.w / image.width, STAGE.h / image.height) * placement.scale;
+export const drawBackground = (ctx, image, placement = { scale: 1, x: 0, y: 0 }, W, H) => {
+  const s = Math.max(W / image.width, H / image.height) * placement.scale;
   const w = image.width * s, h = image.height * s;
-  ctx.drawImage(image, (STAGE.w - w) / 2 + placement.x * STAGE.w, (STAGE.h - h) / 2 + placement.y * STAGE.h, w, h);
+  ctx.drawImage(image, (W - w) / 2 + placement.x * W, (H - h) / 2 + placement.y * H, w, h);
 };
 
-/** Lines the creator's ghost up with the player: one uniform scale and offset from shoulder centre and width, smoothed. */
+/**
+ * Lines the creator's 9:16 ghost up with the player in a view of another aspect: one uniform scale and offset, in units of
+ * view height, from shoulder centre and width, smoothed. Without the player in view the ghost stands centred, full height.
+ */
 export class GhostAlign {
   constructor() { this.cur = null; }
-  update(reference, live) {
-    const r = torso(reference), l = torso(live);
-    if (!r || !l) return this.cur ?? [1, 0, 0];
+  update(reference, live, viewAspect) {
+    const r = torso(reference, STAGE.aspect), l = torso(live, viewAspect);
+    if (!r || !l) return this.cur ?? [1, (viewAspect - STAGE.aspect) / 2, 0];
     const s = Math.min(2.2, Math.max(0.45, l.span / r.span));
     const target = [s, l.cx - r.cx * s, l.cy - r.cy * s];
     if (!this.cur) this.cur = target; else this.cur = this.cur.map((v, i) => v + (target[i] - v) * 0.12);
@@ -184,15 +206,16 @@ export class GhostAlign {
   }
   reset() { this.cur = null; }
 }
-const torso = (p) => {
+const torso = (p, aspect) => {
   if (!p || p[J.leftShoulder * 3 + 2] < 0.35 || p[J.rightShoulder * 3 + 2] < 0.35) return null;
-  const a = STAGE.aspect, lx = p[J.leftShoulder * 3], ly = p[J.leftShoulder * 3 + 1], rx = p[J.rightShoulder * 3], ry = p[J.rightShoulder * 3 + 1];
-  const span = Math.hypot((lx - rx) * a, ly - ry);
-  return span > 0.03 ? { cx: (lx + rx) / 2, cy: (ly + ry) / 2, span } : null;
+  const lx = p[J.leftShoulder * 3] * aspect, ly = p[J.leftShoulder * 3 + 1], rx = p[J.rightShoulder * 3] * aspect, ry = p[J.rightShoulder * 3 + 1];
+  const span = Math.hypot(lx - rx, ly - ry);
+  return span > 0.02 ? { cx: (lx + rx) / 2, cy: (ly + ry) / 2, span } : null;
 };
-export const applyTransform = (pose, [s, tx, ty]) => {
+/** A dance-space pose moved into the view by a GhostAlign transform. */
+export const applyTransform = (pose, [s, tx, ty], viewAspect) => {
   if (!pose) return null;
   const out = new Float32Array(pose.length);
-  for (let i = 0; i < pose.length; i += 3) { out[i] = pose[i] * s + tx; out[i + 1] = pose[i + 1] * s + ty; out[i + 2] = pose[i + 2]; }
+  for (let i = 0; i < pose.length; i += 3) { out[i] = (pose[i] * STAGE.aspect * s + tx) / viewAspect; out[i + 1] = pose[i + 1] * s + ty; out[i + 2] = pose[i + 2]; }
   return out;
 };

@@ -14,8 +14,6 @@ export const store = createStore({
   liked: new Set(storage.get('liked', [])),
   likeBusy: new Set(),
   comments: {},
-  onboarded: storage.get('onboarded', false),
-  musicSource: storage.get('musicSource', null),
   ghostOpacity: storage.get('ghostOpacity', 0.2),
   countdown: storage.get('countdown', 3),
 });

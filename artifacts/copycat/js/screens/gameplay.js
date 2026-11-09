@@ -3,7 +3,7 @@ import { Icon } from '../icons.js';
 import { Button, ProgressView, Empty, sheet, menu, confirmDialog, alertDialog, toast } from '../ui.js';
 import { store, nav, setPref, ensureViewer } from '../data/store.js';
 import { parsePose, sample } from '../data/format.js';
-import { loadTracker, openCamera, Tracker, STAGE, J } from '../engine/pose.js';
+import { loadTracker, openCamera, Tracker, STAGE, J, danceCrop, toDance } from '../engine/pose.js';
 import { Stage, GhostAlign, applyTransform, drawPerimeter } from '../engine/stage.js';
 import { DanceRecorder } from '../engine/recorder.js';
 import { SongClock } from '../engine/music.js';
@@ -46,16 +46,18 @@ const useCameraStage = (host, onFrame, { audio = false } = {}) => {
 };
 
 /** CopycatPlaybackPosition, simplified: shoulders and head in view, not too close, not too far. */
-const framing = (pose, mode) => {
+const framing = (pose, mode, aspect) => {
   if (!pose) return { ready: false, message: null };
   const v = (j) => pose[j * 3 + 2] >= 0.35;
   if (!v(J.leftShoulder) || !v(J.rightShoulder) || !v(J.nose)) return { ready: false, message: 'Step back' };
-  const span = Math.hypot((pose[J.leftShoulder * 3] - pose[J.rightShoulder * 3]) * STAGE.aspect, pose[J.leftShoulder * 3 + 1] - pose[J.rightShoulder * 3 + 1]);
+  const span = Math.hypot((pose[J.leftShoulder * 3] - pose[J.rightShoulder * 3]) * aspect, pose[J.leftShoulder * 3 + 1] - pose[J.rightShoulder * 3 + 1]);
   if (span > (mode === 'full' ? 0.17 : 0.3)) return { ready: false, message: 'Step back' };
   if (span < 0.06) return { ready: false, message: 'Get closer' };
   if (mode === 'full' && !(v(J.leftAnkle) && v(J.rightAnkle))) return { ready: false, message: 'Step back' };
   return { ready: true, message: null };
 };
+
+const trailScale = (c) => Math.max(0.6, Math.min(c.w, c.h) / 720);
 
 const FramingBubble = ({ message }) => html`<div class="framing" aria-live="polite"><span class="bubble glass">${message.toUpperCase()}</span></div>`;
 const Countdown = ({ value }) => html`<div class="countdown glass" aria-live="assertive"><span key=${value}>${value}</span></div>`;
@@ -119,8 +121,9 @@ export const RecordingFlow = ({ params }) => {
     const st = s.current;
     stage.drawPicture(cam.video, tracker, { privacy, background });
     const c = stage.beginFx(), ctx = stage.fxCtx;
+    stage.drawCropGuide();
     if (phase.name === 'armed') {
-      const f = recent ? framing(pose, 'upper') : { ready: false, message: null };
+      const f = recent ? framing(toDance(pose, danceCrop(stage.aspect)), 'upper', STAGE.aspect) : { ready: false, message: null };
       if (f.message !== st.message) { st.message = f.message; tick((n) => n + 1); }
       if (f.ready && tracker.people < 2) { st.readySince ??= now; if (now - st.readySince > 0.65) begin(countdownSeconds); } else st.readySince = null;
     }
@@ -131,7 +134,7 @@ export const RecordingFlow = ({ params }) => {
     if (phase.name === 'recording' && st.recorder) {
       const t = st.recorder.elapsed;
       st.recorder.frame(fresh ? pose : null, tracker.capturedAt);
-      stage.live.push(t, recent ? pose : null); stage.live.draw(ctx, stage.map, c.s / 1.6);
+      stage.live.push(t, recent ? pose : null); stage.live.draw(ctx, stage.map, trailScale(c));
       drawPerimeter(ctx, c.w, c.h, t / choice.length, now, c.dpr);
       if (Math.floor(t * 4) !== st.lastTick) { st.lastTick = Math.floor(t * 4); tick((n) => n + 1); }
       if (t >= choice.length) stop();
@@ -223,7 +226,7 @@ export const PlayingFlow = ({ params }) => {
   const begin = async () => {
     const st = s.current, d = dance;
     if (st.begun) return; st.begun = true;
-    const scorer = new Scorer({ frames: st.playable.pose.frames, length: st.playable.pose.length, mode: d.mode, aspect: STAGE.aspect }, STAGE.aspect, onWindow);
+    const scorer = new Scorer({ frames: st.playable.pose.frames, length: st.playable.pose.length, mode: d.mode, aspect: STAGE.aspect }, st.viewAspect ?? STAGE.aspect, onWindow);
     st.scorer = scorer;
     st.clock = new SongClock(d.song, params.file ?? null);
     try { await st.clock.ready(); } catch (e) { setError(e.message); return; }
@@ -240,11 +243,12 @@ export const PlayingFlow = ({ params }) => {
     const playing = setup === 'playing' && st.clock;
     const t = playing ? st.clock.now() - dance.clip.start : 0;
     const ref = sample(p.pose.frames, Math.max(0, Math.min(p.pose.length, t)));
-    const transform = st.align.update(ref, recent ? pose : null);
+    st.viewAspect = stage.aspect;
+    const transform = st.align.update(ref, recent ? pose : null, stage.aspect);
     if (playing && !paused && Math.abs(p.ghost.currentTime - (t + dance.clip.offset)) > 0.15 && t >= 0) p.ghost.currentTime = t + dance.clip.offset;
     stage.drawGhost(p.ghost, transform, opacity);
     if (setup === 'armed' || setup === 'countdown') {
-      const f = recent ? framing(pose, dance.mode) : { ready: false, message: null };
+      const f = recent ? framing(pose, dance.mode, stage.aspect) : { ready: false, message: null };
       if (f.message !== st.message) { st.message = f.message; tick((n) => n + 1); }
       const ready = f.ready && tracker.people < 2;
       if (party) {
@@ -258,8 +262,8 @@ export const PlayingFlow = ({ params }) => {
       st.scorer.advance(t);
       if (st.scorer.score !== hud.score || st.scorer.combo !== hud.combo) setHud({ score: st.scorer.score, combo: st.scorer.combo });
       party?.sendScore(st.scorer.score, st.scorer.combo);
-      stage.live.push(t, recent ? pose : null); stage.live.draw(ctx, stage.map, c.s / 1.6);
-      stage.reference.push(t, applyTransform(ref, transform)); stage.reference.draw(ctx, stage.map, c.s / 1.6);
+      stage.live.push(t, recent ? pose : null); stage.live.draw(ctx, stage.map, trailScale(c));
+      stage.reference.push(t, applyTransform(ref, transform, stage.aspect)); stage.reference.draw(ctx, stage.map, trailScale(c));
       drawPerimeter(ctx, c.w, c.h, t / p.pose.length, now, c.dpr);
       if (Math.floor(t * 4) !== st.lastTick) { st.lastTick = Math.floor(t * 4); tick((n) => n + 1); }
       if (t >= p.pose.length) finish();

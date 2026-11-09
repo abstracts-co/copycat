@@ -1,10 +1,10 @@
-import { toast, alertDialog } from '../ui.js';
+import { toast } from '../ui.js';
 import { bridge } from '../data/bridge.js';
 import { store, nav, ensureViewer, HOST } from '../data/store.js';
 
 const fail = (e) => {
   if (e?.code === 'cancelled' || e?.code === 'denied') return;
-  if (e?.code === 'signed_out') { alertDialog({ title: 'Sign in to abstracts', message: 'Copycat uses your abstracts account to publish, like and play with friends.', actions: [{ label: 'Not now', role: 'cancel' }, { label: 'Sign in', onClick: () => bridge.call('signIn').catch(() => {}) }] }); return; }
+  if (e?.code === 'signed_out') { toast('Sign in on abstracts first.'); return; }
   toast(e?.message || 'That didn’t work.');
 };
 export const guarded = (fn) => async (...args) => { try { await fn(...args); } catch (e) { fail(e); } };

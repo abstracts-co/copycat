@@ -30,5 +30,5 @@ onmessage = async ({ data }) => {
     if (m) mask = new Uint8Array(m.getAsUint8Array());
   });
   data.bitmap.close();
-  postMessage({ type: 'result', id: data.id, pose, mask, people }, [pose?.buffer, mask?.buffer].filter(Boolean));
+  postMessage({ type: 'result', id: data.id, w: data.w, h: data.h, pose, mask, people }, [pose?.buffer, mask?.buffer].filter(Boolean));
 };

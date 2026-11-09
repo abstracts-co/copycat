@@ -1,4 +1,4 @@
-import { JOINTS, WORK, STAGE } from './pose.js';
+import { JOINTS, STAGE, danceCrop, toDance } from './pose.js';
 import { RATE } from '../data/format.js';
 
 const pick = (types) => types.find((t) => window.MediaRecorder?.isTypeSupported?.(t)) ?? '';
@@ -7,10 +7,16 @@ export const extension = (type) => (type.startsWith('video/mp4') ? 'mp4' : 'webm
 const GHOST = { w: 180, h: 320 };
 const LIMIT = 4.4 * 1024 * 1024;
 
-/** Records a new dance: the stage picture as the dance video, the ghost track, and the pose reel. */
+/**
+ * Records a new dance from the centre 9:16 of the stage: the picture as the dance video, the ghost track (brightness |
+ * mask) and the pose reel, all in dance coordinates.
+ */
 export class DanceRecorder {
   constructor(stage, tracker, { privacy }) {
     this.stage = stage; this.tracker = tracker; this.privacy = privacy;
+    this.crop = danceCrop(stage.aspect);
+    this.canvas = Object.assign(document.createElement('canvas'), { width: STAGE.w, height: STAGE.h });
+    this.c = this.canvas.getContext('2d');
     this.ghost = Object.assign(document.createElement('canvas'), { width: GHOST.w * 2, height: GHOST.h });
     this.g = this.ghost.getContext('2d');
     this.samples = [];
@@ -27,22 +33,26 @@ export class DanceRecorder {
       return r;
     };
     this.videoChunks = []; this.ghostChunks = [];
-    this.video = make(this.stage.picture, bits, this.videoChunks);
+    this.drawVideo();
+    this.video = make(this.canvas, bits, this.videoChunks);
     this.ghostRec = make(this.ghost, 280_000, this.ghostChunks);
     this.video.start(250); this.ghostRec.start(250);
     this.t0 = performance.now();
     this.length = length;
   }
   get elapsed() { return this.t0 ? (performance.now() - this.t0) / 1000 : 0; }
+  part(canvas) { const k = this.crop; return [k.x * canvas.width, k.y * canvas.height, k.w * canvas.width, k.h * canvas.height]; }
+  drawVideo() { this.c.drawImage(this.stage.picture, ...this.part(this.stage.picture), 0, 0, STAGE.w, STAGE.h); }
   frame(pose, capturedAt) {
-    const t = this.elapsed, g = this.g, at = capturedAt ? (capturedAt - this.t0) / 1000 : t;
+    const t = this.elapsed, g = this.g, at = capturedAt ? (capturedAt - this.t0) / 1000 : t, tr = this.tracker;
+    this.drawVideo();
     g.fillStyle = '#000'; g.fillRect(0, 0, GHOST.w * 2, GHOST.h);
     if (this.privacy) { g.fillStyle = '#5a5a5a'; g.fillRect(0, 0, GHOST.w, GHOST.h); }
-    else { g.filter = 'grayscale(1)'; g.drawImage(this.tracker.frameAt, 0, 0, WORK.w, WORK.h, 0, 0, GHOST.w, GHOST.h); g.filter = 'none'; }
-    if (this.tracker.hasMask) g.drawImage(this.tracker.mask, 0, 0, WORK.w, WORK.h, GHOST.w, 0, GHOST.w, GHOST.h);
-    if (pose && at >= 0) this.samples.push([at, Float32Array.from(pose)]);
+    else if (tr.frameAt) { g.filter = 'grayscale(1)'; g.drawImage(tr.frameAt, ...this.part(tr.frameAt), 0, 0, GHOST.w, GHOST.h); g.filter = 'none'; }
+    if (tr.hasMask) g.drawImage(tr.mask, ...this.part(tr.mask), GHOST.w, 0, GHOST.w, GHOST.h);
+    if (pose && at >= 0) this.samples.push([at, toDance(pose, this.crop)]);
     if (this.coverAt === null && t > Math.min(2, this.length / 3) && pose) this.coverAt = t;
-    if (this.coverAt !== null && !this.cover) this.cover = snapshot(this.stage.picture);
+    if (this.coverAt !== null && !this.cover) this.cover = snapshot(this.canvas);
   }
   async stop() {
     const done = (r) => new Promise((res) => { r.onstop = res; r.stop(); });
@@ -50,7 +60,7 @@ export class DanceRecorder {
     const duration = Math.min(this.elapsed, this.length);
     return {
       video: new Blob(this.videoChunks, { type: this.type }), ghost: new Blob(this.ghostChunks, { type: this.type }), type: this.type,
-      frames: resample(this.samples, duration), duration, cover: await (this.cover ?? snapshot(this.stage.picture)),
+      frames: resample(this.samples, duration), duration, cover: await (this.cover ?? snapshot(this.canvas)),
     };
   }
   cancel() { for (const r of [this.video, this.ghostRec]) if (r && r.state !== 'inactive') r.stop(); }
