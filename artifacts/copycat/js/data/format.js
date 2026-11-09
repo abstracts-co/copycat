@@ -18,6 +18,7 @@ export const cleanSong = (t) => {
   if (safe(t.file)) out.file = t.file;
   if (/^[\w-]{11}$/.test(t.youtube ?? '')) out.youtube = t.youtube;
   if (Number.isSafeInteger(t.apple) && t.apple > 0) out.apple = t.apple;
+  if (num(t.year, 1900, 2100)) out.year = t.year;
   if (num(t.bpm, 40, 240)) out.bpm = t.bpm;
   if (Array.isArray(t.segment) && num(t.segment[0], 0, 3600) && num(t.segment[1], 0, 3600)) out.segment = [t.segment[0], t.segment[1]];
   if (!out.url && !out.file && out.source !== 'file') return null;

@@ -207,7 +207,7 @@ export const searchYouTube = async (q) => {
 const APPLE = 'https://itunes.apple.com';
 const appleSong = (r) => cleanSong({
   id: `apple:${r.trackId}`, apple: r.trackId, title: r.trackName, artist: r.artistName, url: r.previewUrl, artwork: r.artworkUrl100?.replace('100x100bb', '300x300bb'),
-  page: r.trackViewUrl, license: 'Apple Music', licenseUrl: r.trackViewUrl, source: 'apple',
+  page: r.trackViewUrl, license: 'Apple Music', licenseUrl: r.trackViewUrl, source: 'apple', year: Number(r.releaseDate?.slice(0, 4)) || 0,
 });
 const applePreview = async (id) => (await (await fetch(`${APPLE}/lookup?id=${id}`)).json()).results?.[0]?.previewUrl ?? null;
 /** Apple's catalog: a 30-second preview of almost any song, played by Copycat's own audio element. */
@@ -220,6 +220,16 @@ export const searchApple = async (q) => {
   found.set(`apple:${q}`, songs);
   return songs;
 };
+
+let top = null;
+/** Today's top songs on iTunes, with their previews: what the picker offers before anything is typed. */
+export const topSongs = () => (top ??= (async () => {
+  const chart = await (await fetch(`${APPLE}/us/rss/topsongs/limit=25/json`)).json();
+  const ids = (chart.feed?.entry ?? []).map((e) => e.id?.attributes?.['im:id']).filter((id) => /^\d+$/.test(id ?? ''));
+  if (!ids.length) return [];
+  const { results = [] } = await (await fetch(`${APPLE}/lookup?id=${ids.join(',')}&entity=song`)).json();
+  return results.filter((x) => x.kind === 'song' && x.previewUrl).map(appleSong).filter(Boolean);
+})().catch(() => { top = null; return []; }));
 
 export const importedSong = (file) => new Promise((resolve, reject) => {
   const a = new Audio(URL.createObjectURL(file));

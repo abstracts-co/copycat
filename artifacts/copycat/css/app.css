@@ -246,3 +246,8 @@ img { display: block; }
 .yt-window iframe { display: block; width: 200px; height: 200px; border: 0; border-radius: 14px; background: #000; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
 .yt-hint { display: none; margin: 6px 0 0; text-align: center; font-size: 13px; font-weight: 600; text-shadow: 0 1px 3px #000; }
 .yt-window.tap .yt-hint { display: block; }
+.song-row { gap: 12px; width: 100%; min-height: 44px; padding: 10px 0; text-align: left; transition: opacity 0.15s; }
+.song-row:active { opacity: 0.6; }
+.song-row.on .line1 { color: var(--accent); }
+.cover-wrap { position: relative; flex: none; display: grid; }
+.cover-state { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 10px; background: rgba(0,0,0,0.5); color: #fff; }
