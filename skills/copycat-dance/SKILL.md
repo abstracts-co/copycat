@@ -1,53 +1,38 @@
 ---
 name: copycat-dance
-description: Make a Copycat dance and post it to a/copycat on Abstracts, by recording it in the game or by writing the choreography in code. Use when a member wants to add a dance, a routine, a challenge or moves for a song to Copycat, even if they only say "make a dance for this song" or "add a dance to a/copycat".
+description: Make a Copycat dance and post it to a/copycat on Abstracts, by recording it in the app or by building it from a video of one dancer. Use when a member wants to add a dance, a routine or a challenge to Copycat, even if they only say "make a dance for this song" or "add a dance to a/copycat".
 ---
 
 # Make a Copycat dance
 
-A dance is a pose track: where 15 joints are, 20 times a second, synced to a song. Players copy it while its ghost dances over their camera. The format is in [docs/formats.md](../../docs/formats.md).
+A dance is what its creator recorded: their video, a ghost track (brightness and person mask, for the purple ghost players copy) and their pose, synced to a song. The format is in [docs/formats.md](../../docs/formats.md).
 
 Read the community first (`get_community` with slug `copycat`, or https://abstracts.co/a/copycat.json) and follow the [Abstracts kit](https://abstracts.co/kit/abstracts/SKILL.md). Nothing is posted until the member accepts it.
 
-## Two ways to make one
+## Record it (the member dances)
 
-**Record it (the member dances).** Open https://abstracts-co.github.io/copycat/artifacts/copycat/#make. Pick a song, name the dance, pick Upper body or Full body and a length, press Record and dance. Save downloads a zip with everything the post needs: `index.html`, `dance.json`, `artifact.json`, `content.md` and `preview.png`. The member posts that zip on https://abstracts.co/a/copycat/wall with the Artifact cube. You can't record for them: the moves have to be theirs.
+In the app (the About page of https://abstracts.co/a/copycat): Play → Create a dance → choose a song, trim the clip → record → Preview your dance → name it → Publish dance. Abstracts shows its own sheet with the Artifact post; the member taps Post. You can't record for them: the moves have to be theirs.
 
-**Write it in code (you can do this).** `tools/choreo.mjs` builds dances from moves placed on the beat: each move is a list of poses, one per beat, and each pose places the hands (and feet) in body units, where the shoulder span is 1, the origin is between the shoulders, `+x` is the dancer's left and `+y` is down. Two-bone IK solves elbows and knees.
+## Build it from a video (you can do this)
 
-1. Pick a song from `artifacts/copycat/library/music.json` or a posted music pack. It needs `bpm` and a `segment`; run `python3 tools/tempo.py song.mp3` to estimate them.
-2. Add poses to `POSES` and moves to `MOVES` if the dance needs new ones, and add the dance to `DANCES`. 8 to 16 bars of 4 beats is 20 to 40 seconds.
-3. `node tools/choreo.mjs` writes `artifacts/copycat/library/dances/<id>.json`.
-4. `node tools/test-score.mjs` checks the scorer still rewards copying and refuses idle play.
-5. Watch it: `node tools/serve.mjs` and open http://localhost:8800/artifacts/copycat/#dance=s%3A<id>. Press the play button on the stage. Show the member.
+`tools/build-dance.mjs` turns a video of one dancer, facing the camera, into a dance folder with the same tracking, crop and ghost format as the app, at 30 fps:
 
-To post a written dance as its own Artifact (it shows in the game at once), make a folder with:
-
-- `dance.json`: the generated file.
-- `index.html`: copy it from a recorded zip, or use the one below. It runs the dance in place on the Wall and links to the camera game.
-- `artifact.json`: `{"title": "…", "description": "A Copycat dance to …", "kind": "web", "entry": "index.html", "category": "dances"}`
-- `content.md`: one paragraph naming the dance, song, artist and license.
-- `preview.png`: 1200×750. Recording in the game makes one; for a written dance, render a frame of the ghost.
-
-```html
-<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="copycat-dance" content="dance.json">
-<title>Dance title</title>
-<body style="margin:0;background:#000">
-<div id="app"></div>
-<script type="module" src="https://abstracts-co.github.io/copycat/artifacts/copycat/js/main.js"></script>
-</body>
-</html>
+```sh
+npm i --no-save playwright && npx playwright install chromium   # once; also needs ffmpeg
+node tools/build-dance.mjs --video dancer.webm --title "Nae Nae" --song "Funk party 1" --loops 3 \
+  --credit "El Martial|https://commons.wikimedia.org/wiki/File:Watch_Me_Nae_Nae_-_Tutorial.webm|CC BY 3.0" --out out/nae-nae
+node tools/check.mjs
 ```
 
-Post it with `create_post` and `artifact` (the kit's artifact recipe), and give the member the `approve_url`. To add a written dance to the built-in starter list instead, change `DANCES` in a pull request, which moderators merge.
+- Only videos the community may share: CC BY, CC BY-SA, CC0, public domain, or the member's own. Put the dancer in `--credit` when it isn't the member. Wikimedia Commons has CC dance and exercise videos; check each file's license on its page.
+- `--song` is a title from `artifacts/copycat/library/music.json` (or add the track there first, with a license from the music skill).
+- `--loops` repeats a short tutorial; keep the result under 30 seconds so the video stays under 5 MB.
+- Look at it before posting: `node tools/serve.mjs`, copy the folder into `artifacts/`, open http://localhost:8800/artifacts/copycat/ and find it on Home (the app reads the live feed; add `?host=` with a mock like `.scratch/mock` built from the folder to see an unposted dance, as `tools/` does in its tests).
+
+Post the folder with `create_post` and `artifact` (the kit's artifact recipe), category `dances`, and give the member the `approve_url`. To make it a built-in starter dance instead, add the folder under `artifacts/` in a pull request that moderators merge.
 
 ## Good dances
 
+- One dancer, whole upper body in view, facing the camera. Full body dances need feet in view all the way through.
 - Moves land on the beat and repeat in 4-beat phrases, so people can learn them in one go.
-- Upper body dances must work sitting at a laptop: arms, hands, head. Keep the hands inside the frame.
-- Full body dances need room to step back. Say so in the title or description.
-- Credit the song: title, artist and license come from the track, and show on the dance's page.
+- 15 to 30 seconds. Credit the song (title, artist, license) and anyone else in the video.

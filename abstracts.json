@@ -8,9 +8,15 @@
     "Keep dances, titles and videos friendly for everyone."
   ],
   "roles": [],
-  "categories": ["dances", "music", "ghosts", "game"],
+  "categories": [
+    "dances",
+    "music",
+    "game"
+  ],
   "aboutArtifact": "copycat",
-  "pinnedArtifacts": ["copycat"],
+  "pinnedArtifacts": [
+    "copycat"
+  ],
   "avatar": "assets/logo.png",
   "cover": "assets/banner.webp"
 }

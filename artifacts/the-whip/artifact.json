@@ -1,0 +1,12 @@
+{
+  "title": "The Whip",
+  "description": "A Copycat dance to “Electro funk” by iNDEX (CC BY-SA 3.0)",
+  "kind": "web",
+  "entry": "index.html",
+  "poster": "preview.webp",
+  "category": "dances",
+  "permissions": [
+    "camera",
+    "microphone"
+  ]
+}

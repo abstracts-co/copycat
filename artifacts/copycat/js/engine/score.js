@@ -1,4 +1,5 @@
-import { J, sample } from './dance.js';
+import { J } from './pose.js';
+import { sample } from '../data/format.js';
 
 const TICK = 0.05;
 const DELAY = 0.5;
@@ -96,7 +97,7 @@ const motionSimilarity = (l0, l1, r0, r1, aspect, refAspect, mode) => {
 
 export const movementCredit = (q) => { const t = Math.max(0, Math.min(1, (q - 0.12) / (BANDS.perfect - 0.12))); return t * t * (3 - 2 * t); };
 export const gradeFor = (q) => (q >= BANDS.perfect ? 'perfect' : q >= BANDS.great ? 'great' : q >= BANDS.good ? 'good' : null);
-export const letter = (score) => (score >= 90 ? 'A+' : score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : 'D');
+export const grade = (score) => (score >= 95 ? 'A+' : score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : 'D');
 
 /** Folds a player's reel against a dance at 20 Hz, half a second behind the clock, the way the iPhone game does. */
 export class Scorer {

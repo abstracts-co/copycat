@@ -1,58 +1,58 @@
 ---
 name: copycat-game
-description: Change or improve the Copycat dance game on a/copycat, including scoring, pose tracking, camera, music playback, the dance library, screens, multiplayer ideas and performance, and post a new version of it. Use whenever a member wants to fix, improve or extend Copycat itself, or build their own version of it.
+description: Change or improve the Copycat dance app on a/copycat, including scoring, pose tracking, camera, recording, music, the feed, profiles, parties and performance, and post a new version of it. Use whenever a member wants to fix, improve or extend Copycat itself, or build their own version of it.
 ---
 
-# Change the Copycat game
+# Change the Copycat app
 
-Copycat is a browser port of the Copycat iPhone app. Pose tracking is MediaPipe Pose Landmarker compiled to WebAssembly, loaded from jsDelivr; camera frames never leave the device. It's plain ES modules with no build step.
+Copycat is the Copycat iPhone app rebuilt for the web, screen for screen: Home, Play and Profile tabs, the dance page, song page, music picker, recording and review, play with the creator's ghost, results, comments, settings, and 6-person parties. Pose tracking and the person mask are MediaPipe compiled to WebAssembly, in a Web Worker; camera frames never leave the device. Preact and htm load from jsDelivr; there is no build step.
 
 Read the community first (`get_community` with slug `copycat`) and follow the [Abstracts kit](https://abstracts.co/kit/abstracts/SKILL.md) and its [web artifacts guide](https://abstracts.co/kit/abstracts/references/web-artifacts.md). Nothing is posted until the member accepts it.
 
-## Where it runs
+## How it runs on Abstracts
 
-- **In place on Abstracts** (the About page and every dance post): a sandboxed frame with an opaque origin. Browsers refuse camera access there, so this mode browses dances, plays the ghost to the music (Watch) and searches music. Play and Make open the camera game in a new tab.
-- **The camera game**: https://abstracts-co.github.io/copycat/artifacts/copycat/, served by GitHub Pages from this repository's `main` branch. A change goes live there only when moderators merge it.
+- The app is the a/copycat About artifact (`artifacts/copycat/`). Its `artifact.json` asks for `camera` and `microphone`, so Abstracts runs it on its camera origin instead of the opaque sandbox.
+- Everything that needs the member goes through the **host bridge** (`js/data/bridge.js`): `viewer`, `post` (Publish dance), `reply` (comments), `vote` (likes), `save`, `share`, `open`, `signIn`, `roomToken` (parties). Abstracts shows its own sheet for anything published.
+- Parties use **Abstracts rooms** (`js/party/room.js`): presence, shared state (`host`, `selected`, `vote:<id>`, `ready:<id>`, `media:<id>`, `reaction:<id>`, `round`, `final:<id>`), relayed live scores, server time for the synced start, and WebRTC signaling. Video and voice go peer to peer.
+- Reads use public JSON: `https://abstracts.co/a/copycat.json`, artifact and post `.json`, `/u/<name>.json` (`js/data/store.js`).
+- Each dance post's `index.html` loads the app from GitHub Pages (https://abstracts-co.github.io/copycat/), which serves this repository's `main` branch, so merged changes reach every dance.
 
-`sandboxed` in `js/library.js` tells them apart. Test both.
-
-## The files
-
-All in `artifacts/copycat/`:
+## The files (in `artifacts/copycat/`)
 
 | File | What it is |
 | --- | --- |
-| `js/main.js` | Screens and routing (`#dances`, `#dance=`, `#play=`, `#music`, `#make`), `Watch`, the camera `Session` (play and record), results, posting zips |
-| `js/score.js` | `Scorer`: 20 Hz ticks, half-second move windows, Perfect/Great/Good, combos; a port of the iPhone `ScoreFold` |
-| `js/dance.js` | The dance format: joints, parse, serialize, sample |
-| `js/pose.js` | MediaPipe loader (`loadTracker`) and `openCamera` |
-| `js/music.js` | `SongClock` (song time for audio and the beat), Openverse search, music packs |
-| `js/library.js` | Starter, community and saved dances; reads `https://abstracts.co/a/copycat.json` |
-| `js/ghost.js` | Drawing: see `skills/copycat-look` |
-| `js/zip.js` | The zip a recorded dance downloads as |
-| `library/` | Starter dances (built by `tools/choreo.mjs`) and the Starter music pack |
+| `js/app.js` | Tabs, navigation stack, routes, in-place sizing |
+| `js/screens/*.js` | One file per iPhone screen: `home`, `playhub`, `profile`, `dance`, `song`, `picker`, `gameplay` (record and play), `review`, `lobby`, `signin`, `more` (comments, settings, report) |
+| `js/engine/pose.js`, `tracker-worker.js` | Camera, 9:16 crop, MediaPipe in a worker (CPU delegate: the GPU delegate can't read masks back on some WebGL stacks) |
+| `js/engine/stage.js` | Picture, ghost shader, trails, progress edge |
+| `js/engine/recorder.js` | Records the dance video, ghost track and pose |
+| `js/engine/score.js` | The scorer: a port of the iPhone `ScoreFold` (20 Hz ticks, half-second windows, Perfect/Great/Good, combos) |
+| `js/engine/music.js` | Song clock, clip previews, Openverse search |
+| `js/data/*.js` | Format, feed and profiles, host bridge, publishing and drafts |
+| `js/party/room.js` | Parties |
 
 ## Run and test
 
 ```sh
-node tools/serve.mjs                 # http://localhost:8800, with CORS like Abstracts
-node tools/test-score.mjs            # scorer: exact copy ≈ 99, late ≈ 98, wrong dance and idle stay low
-node tools/check.mjs                 # every library file parses; upload limits hold
+node tools/serve.mjs                       # http://localhost:8800
+node tools/room-server.mjs                 # local rooms for party tests (npm i --no-save ws)
+node tools/test-score.mjs                  # scorer on the starter dances: exact copy ≈ 98, wrong dance and standing still stay low
+node tools/check.mjs                       # every folder within upload limits, every dance and track valid
 ```
 
-- http://localhost:8800/artifacts/copycat/ is the camera game (localhost counts as secure, so the camera works).
-- http://localhost:8800/tools/preview.html is the sandboxed About column, the way Abstracts shows it. Check it at 580px and 390px wide.
-- For camera tests without a person, Chrome takes a video as its webcam: `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream --use-file-for-fake-video-capture=dancer.y4m` (make the `.y4m` with `ffmpeg -i in.webm -t 20 -vf scale=640:-2 -pix_fmt yuv420p dancer.y4m`; Wikimedia Commons has CC videos of people dancing and exercising).
+- http://localhost:8800/tools/host.html?user=alex stands in for abstracts.co: it answers the bridge as member `alex` and points parties at the local room server. Open a second browser with `?user=sam&a_room=<code>` to test a party.
+- Chrome can use a video as its webcam: `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream --use-file-for-fake-video-capture=dancer.y4m` (`ffmpeg -i in.webm -vf scale=540:960,fps=30 -pix_fmt yuv420p dancer.y4m`). Use an absolute path.
+- Check every screen at 393×852 and in the About column. Headless Chrome on software GL runs tracking slowly; judge smoothness on a real device.
 
-A scoring change must keep `tools/test-score.mjs` passing. Uploads are limited to 5 MB a file and 100 files, 10 MB in all.
+A scoring change must keep `tools/test-score.mjs` passing. Files must stay under 5 MB each and 100 per folder.
 
 ## Post your version
 
-Post the changed `artifacts/copycat/` folder as a new Artifact with a new id and `based_on: "copycat"`, in the `game` category, so people can try it in place right away. Its camera mode still opens the merged game, so say in the post what to try. Moderators merge the ones that should become the game. To change the game directly, open a pull request against `main`.
+Post the changed `artifacts/copycat/` folder as a new Artifact with a new id and `based_on: "copycat"`, category `game`, so people can try it in place. Moderators merge the ones that should become the app. To change it directly, open a pull request against `main`.
 
 ## Ideas to build next
 
-- Party mode: several players on the same dance, with scores shared through a Wall post or a small relay.
-- Saving a clip of your run (canvas plus camera; the music can't be captured from Jamendo because it sends no CORS headers).
-- Hand and finger tracking (MediaPipe Hand Landmarker) for dances that use gestures.
-- More music sources with open APIs and per-track licenses.
+- Save & share a replay video of your run (the iPhone results screen's main button).
+- Hand and finger tracking (MediaPipe Hand Landmarker) for dances with hand signs.
+- Friends and follows, once Abstracts has them; today Add friend shares a link.
+- A full-body mode in Create (the scorer and framing already support `mode: "full"`).

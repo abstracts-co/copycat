@@ -1,8 +1,9 @@
 {
   "title": "Copycat",
-  "description": "A dance game you play with your camera. Copy the ghost, score points, make your own dances.",
+  "description": "Copy the ghost. A dance game you play with your camera: make dances, play them, and party with friends.",
   "kind": "web",
   "entry": "index.html",
   "poster": "preview.webp",
-  "category": "game"
+  "category": "game",
+  "permissions": ["camera", "microphone"]
 }
