@@ -3,6 +3,7 @@ import { html } from './lib.js';
 const S = (d, fill = false, w = 1.8) => html`<svg viewBox="0 0 24 24" fill=${fill ? 'currentColor' : 'none'} stroke=${fill ? 'none' : 'currentColor'} stroke-width=${w} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
 const P = {
+  magnifyingglass: S(html`<circle cx="10.5" cy="10.5" r="6.2"/><path d="m15.2 15.2 5.3 5.3"/>`),
   house: S(html`<path d="M3.5 10.5 12 3.8l8.5 6.7"/><path d="M5.5 9v10.2c0 .7.5 1.2 1.2 1.2H10v-5.6h4v5.6h3.3c.7 0 1.2-.5 1.2-1.2V9"/>`),
   'house.fill': S(html`<path d="M12 3.2 2.8 10.4c-.5.4-.2 1.1.4 1.1h1.3v7.9c0 .9.7 1.6 1.6 1.6h3.4v-5.6c0-.5.4-.9.9-.9h3.2c.5 0 .9.4.9.9V21h3.4c.9 0 1.6-.7 1.6-1.6v-7.9h1.3c.6 0 .9-.7.4-1.1Z"/>`, true),
   'play.fill': S(html`<path d="M7.5 4.6v14.8c0 .9 1 1.5 1.8 1L21 13c.7-.5.7-1.5 0-2L9.3 3.6c-.8-.5-1.8.1-1.8 1Z"/>`, true),

@@ -132,14 +132,27 @@ export const youtubeLink = async (id) => {
   const o = await r.json();
   return youtubeSong({ id, title: o.title, artist: o.author_name, artwork: o.thumbnail_url });
 };
+const found = new Map();
+export const suggestYouTube = (q) => new Promise((resolve) => {
+  const name = `ytSuggest${Math.random().toString(36).slice(2)}`, script = document.createElement('script');
+  const done = (list) => { clearTimeout(timer); delete window[name]; script.remove(); resolve(list); };
+  const timer = setTimeout(() => done([]), 4000);
+  window[name] = (d) => done((d?.[1] ?? []).map((x) => (Array.isArray(x) ? x[0] : x)).filter((x) => typeof x === 'string').slice(0, 8));
+  script.onerror = () => done([]);
+  script.src = `https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=${name}`;
+  document.head.append(script);
+});
 export const searchYouTube = async (q) => {
-  if (!YOUTUBE_KEY) return [];
+  if (!YOUTUBE_KEY) throw new Error('YouTube search isn’t switched on yet. Paste a YouTube link instead.');
+  if (found.has(q)) return found.get(q);
   const url = new URL('https://www.googleapis.com/youtube/v3/search');
   url.search = new URLSearchParams({ part: 'snippet', type: 'video', videoEmbeddable: 'true', videoCategoryId: '10', maxResults: '15', q, key: YOUTUBE_KEY });
   const r = await fetch(url);
-  if (!r.ok) return [];
+  if (!r.ok) throw new Error(r.status === 403 ? 'YouTube search is busy today. Paste a YouTube link instead.' : 'YouTube search isn’t working right now.');
   const { items = [] } = await r.json();
-  return items.map((x) => youtubeSong({ id: x.id?.videoId, title: decode(x.snippet?.title), artist: decode(x.snippet?.channelTitle), artwork: x.snippet?.thumbnails?.medium?.url })).filter((s) => s?.youtube);
+  const songs = items.map((x) => youtubeSong({ id: x.id?.videoId, title: decode(x.snippet?.title), artist: decode(x.snippet?.channelTitle), artwork: x.snippet?.thumbnails?.medium?.url })).filter((s) => s?.youtube);
+  found.set(q, songs);
+  return songs;
 };
 
 export const importedSong = (file) => new Promise((resolve, reject) => {

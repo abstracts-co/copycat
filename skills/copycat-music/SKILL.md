@@ -16,7 +16,7 @@ Every track must be one the whole community may dance to and share: **CC BY, CC 
 ## Find tracks
 
 - **YouTube**: in the app's music picker, paste a YouTube link (or search, once `YOUTUBE_KEY` in `js/engine/music.js` holds a YouTube Data API key restricted to the art origin). The song plays in YouTube's own player, so the video stays on YouTube and nothing is copied. Packs can't list YouTube songs: a pack is for music Copycat may share.
-- **Openverse** (`https://api.openverse.org/v1/audio/?q=funk&license_type=commercial,modification&category=music`) searches Jamendo, ccMixter, Wikimedia and others. Its `url` field plays directly. The app's music picker already searches it, so a pack is for a curated set.
+- **Openverse** (`https://api.openverse.org/v1/audio/?q=funk&license_type=commercial,modification&category=music`) searches Jamendo, ccMixter, Wikimedia and others. Its `url` field plays directly.
 - **Jamendo** tracks play from `https://prod-1.storage.jamendo.com/?trackid=<id>&format=mp32`.
 - **Internet Archive** netlabel releases (`https://archive.org/advancedsearch.php?q=collection:netlabels`) often carry CC licenses; use the direct `https://archive.org/download/<item>/<file>.mp3` link.
 - **The member's own music**: put the MP3s in the pack's folder and give each track `"file": "tracks/<name>.mp3"` instead of `url` (up to 5 MB each, 10 MB per post), or link a file they host over `https`. Name them as artist.

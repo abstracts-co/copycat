@@ -139,7 +139,19 @@ export class Stage {
     this.person = canvas('');
     this.personCtx = this.person.getContext('2d');
     this.live = new Trails(LIVE_TINT); this.reference = new Trails(REFERENCE_TINT);
-    this.aspect = 16 / 9;
+    this.aspect = 16 / 9; this.revived = 0;
+    this.ghostCanvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
+    this.ghostCanvas.addEventListener('webglcontextrestored', () => { this.ghost = new GhostLayer(this.ghostCanvas); });
+  }
+  /**
+   * Chrome can drop a GPU canvas's 2D context (GPU reset, display change) and then paints its broken-canvas icon for good.
+   * Swap in a fresh canvas; after a second loss, use CPU canvases, which can't be lost.
+   */
+  revive() {
+    const lost = [['picture', 'ctx'], ['person', 'personCtx'], ['fx', 'fxCtx'], ['backdrop', 'backdropCtx']].filter(([, x]) => this[x].isContextLost?.());
+    if (!lost.length) return;
+    const options = this.revived++ ? { willReadFrequently: true } : {};
+    for (const [c, x] of lost) { const fresh = this[c].cloneNode(); this[c].replaceWith(fresh); this[c] = fresh; this[x] = fresh.getContext('2d', options); }
   }
   fit(video) {
     const aspect = video.videoWidth / video.videoHeight;
@@ -165,6 +177,7 @@ export class Stage {
   }
   map = (x, y) => [this.view.ox + x * this.picture.width * this.view.s, this.view.oy + y * this.picture.height * this.view.s];
   drawPicture(video, tracker, { privacy = false, background = null } = {}) {
+    this.revive();
     this.fit(video);
     const ctx = this.ctx, W = this.picture.width, H = this.picture.height;
     if (!privacy && !background) { drawMirrored(ctx, video, W, H); this.drawBackdrop(); return; }
