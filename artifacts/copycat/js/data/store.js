@@ -48,9 +48,9 @@ export const loadFeed = async () => {
     const counts = community.social_counts ?? {};
     const all = community.artifacts?.items ?? [];
     limit(all.filter((a) => a.category === 'music'), 4, async (a) => {
-      const meta = await getJSON(a.json), url = (meta.files?.items ?? []).find((f) => f.path === 'music.json')?.url;
-      const pack = url && await getJSON(url);
-      return pack?.format === 'copycat/music@1' ? { title: String(pack.title ?? a.title).slice(0, 60), tracks: (pack.tracks ?? []).slice(0, 200).map(cleanSong).filter((t) => t?.url) } : null;
+      const meta = await getJSON(a.json), files = Object.fromEntries((meta.files?.items ?? []).map((f) => [f.path, f.url]));
+      const pack = files['music.json'] && await getJSON(files['music.json']);
+      return pack?.format === 'copycat/music@1' ? { title: String(pack.title ?? a.title).slice(0, 60), tracks: (pack.tracks ?? []).slice(0, 200).map((t) => cleanSong(files[t?.file] ? { ...t, url: files[t.file] } : t)).filter((t) => t?.url) } : null;
     }).then((packs) => store.set({ packs: packs.filter(Boolean) }));
     const items = all.filter((a) => a.category === 'dances' || (a.id !== 'copycat' && a.category !== 'music' && a.category !== 'game'));
     const dances = (await limit(items, 6, async (a) => {
@@ -58,6 +58,7 @@ export const loadFeed = async () => {
       const files = Object.fromEntries((meta.files?.items ?? []).map((f) => [f.path, f.url]));
       if (!files['dance.json']) return null;
       const d = parseDance(await getJSON(files['dance.json']));
+      if (files[d.song.file]) d.song.url = files[d.song.file];
       const handle = meta.maker?.username ?? meta.maker?.handle ?? meta.maker?.login ?? null;
       const postNumber = meta.post?.number ?? (typeof meta.post === 'number' ? meta.post : null);
       const keys = Object.keys(meta.social_counts ?? {}), postKey = keys.find((k) => k.includes(':post/')) ?? null, artifactKey = keys.find((k) => k.includes(':artifact/')) ?? null;

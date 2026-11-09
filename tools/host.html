@@ -26,7 +26,7 @@ const methods = {
   reply: () => ({ reply: { id: 'r1', url: '#' } }),
   open: ({ path }) => { console.log('open', path); return {}; },
   signIn: () => ({}),
-  post: ({ files }) => { console.log('post', files.map((x) => `${x.path} ${x.blob.size}`).join(', ')); window.posted = files.map((x) => x.path); return { post: { number: 9, url: '#', key: 'k' }, artifact: { id: 'new', url: '#' } }; },
+  post: ({ files }) => { console.log('post', files.map((x) => `${x.path} ${x.blob.size}`).join(', ')); window.posted = files.map((x) => x.path); window.postedFiles = files; return { post: { number: 9, url: '#', key: 'k' }, artifact: { id: 'new', url: '#' } }; },
 };
 addEventListener('message', async (e) => {
   if (e.source !== f.contentWindow || e.data?.abstracts !== 'call') return;

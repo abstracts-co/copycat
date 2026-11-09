@@ -78,3 +78,18 @@ export const importedSong = (file) => new Promise((resolve, reject) => {
   a.addEventListener('loadedmetadata', () => { URL.revokeObjectURL(a.src); resolve({ song: { id: `file:${file.name}:${file.size}`, title: file.name.replace(/\.[^.]+$/, '').slice(0, 120), artist: '', source: 'file', duration: a.duration || 0 }, file }); }, { once: true });
   a.addEventListener('error', () => reject(new Error('That file isn’t audio Copycat can play.')), { once: true });
 });
+
+/** The trimmed clip of a song from the dancer's device, as mono 24 kHz WAV, so it posts with the dance and everyone hears it. */
+export const clipAudio = async (file, start, length, rate = 24000) => {
+  const ctx = new OfflineAudioContext(1, Math.ceil(length * rate), rate);
+  const source = ctx.createBufferSource();
+  source.buffer = await ctx.decodeAudioData(await file.arrayBuffer());
+  source.connect(ctx.destination);
+  source.start(0, start, length);
+  const pcm = (await ctx.startRendering()).getChannelData(0), out = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const text = (at, s) => { for (let i = 0; i < s.length; i++) out.setUint8(at + i, s.charCodeAt(i)); };
+  text(0, 'RIFF'); out.setUint32(4, 36 + pcm.length * 2, true); text(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+  out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); text(36, 'data'); out.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
+  return new Blob([out], { type: 'audio/wav' });
+};

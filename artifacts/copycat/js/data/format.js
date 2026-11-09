@@ -15,9 +15,10 @@ export const cleanSong = (t) => {
     url: https(t.url), artwork: https(t.artwork), page: https(t.page), license: str(t.license, 40), licenseUrl: https(t.licenseUrl),
     source: str(t.source, 40), duration: num(t.duration, 1, 3600) ? t.duration : 0,
   };
+  if (safe(t.file)) out.file = t.file;
   if (num(t.bpm, 40, 240)) out.bpm = t.bpm;
   if (Array.isArray(t.segment) && num(t.segment[0], 0, 3600) && num(t.segment[1], 0, 3600)) out.segment = [t.segment[0], t.segment[1]];
-  if (!out.url && out.source !== 'file') return null;
+  if (!out.url && !out.file && out.source !== 'file') return null;
   return out;
 };
 

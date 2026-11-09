@@ -3,6 +3,7 @@ import { extension } from '../engine/recorder.js';
 import { bridge } from './bridge.js';
 import { store, loadFeed } from './store.js';
 import { zip } from './zip.js';
+import { clipAudio } from '../engine/music.js';
 
 const APP = 'https://abstracts-co.github.io/copycat/artifacts/copycat/';
 const MAX_FILE = 5 * 1024 * 1024;
@@ -10,15 +11,18 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 export const tags = (text) => [...new Set((text.match(/#?[\p{L}\p{N}_]+/gu) ?? []).map((t) => t.replace(/^#/, '').toLowerCase()))].slice(0, 10);
 
 /** The Artifact folder for one dance: the app opened on it, its media, and the files Abstracts reads. */
-export const danceFiles = ({ title, hashtags, choice, privacy, result, trim }) => {
+export const danceFiles = async ({ title, hashtags, choice, privacy, result, trim }) => {
   const ext = extension(result.type), song = { ...choice.song };
+  delete song.file;
+  const clip = { start: choice.start + trim.start, length: trim.end - trim.start, offset: trim.start };
+  const audio = song.source === 'file' && choice.file ? await clipAudio(choice.file, clip.start, clip.length) : null;
   const dance = {
     format: FORMAT, title, hashtags, mode: 'upper', privacy, created: new Date().toISOString(),
-    song: song.source === 'file' ? { title: song.title, artist: song.artist, source: 'file', duration: song.duration } : song,
-    clip: { start: choice.start + trim.start, length: trim.end - trim.start, offset: trim.start },
+    song: audio ? { title: song.title, artist: song.artist, source: 'upload', file: 'song.wav', duration: clip.length } : song.source === 'file' ? { title: song.title, artist: song.artist, source: 'file', duration: song.duration } : song,
+    clip: audio ? { ...clip, start: 0 } : clip,
     files: { video: `video.${ext}`, ghost: `ghost.${ext}`, pose: 'pose.json', cover: 'preview.webp' },
   };
-  const credit = song.source === 'file' ? `“${song.title}”, from the dancer's own device` : `“${song.title}”${song.artist ? ` by ${song.artist}` : ''}${song.license ? ` (${song.license})` : ''}`;
+  const credit = song.source === 'file' ? `“${song.title}”, uploaded by the dancer` : `“${song.title}”${song.artist ? ` by ${song.artist}` : ''}${song.license ? ` (${song.license})` : ''}`;
   const files = [
     { path: 'index.html', blob: new Blob([`<!doctype html>\n<html lang="en">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<meta name="copycat-dance" content="dance.json">\n<title>${esc(title)}</title>\n<link rel="stylesheet" href="${APP}css/app.css">\n<body>\n<div id="app"></div>\n<script type="module" src="${APP}js/app.js"></script>\n</body>\n</html>\n`], { type: 'text/html' }) },
     { path: 'dance.json', blob: new Blob([JSON.stringify(dance)], { type: 'application/json' }) },
@@ -28,14 +32,15 @@ export const danceFiles = ({ title, hashtags, choice, privacy, result, trim }) =
     { path: 'preview.webp', blob: result.cover },
     { path: 'artifact.json', blob: new Blob([JSON.stringify({ title, description: `A Copycat dance to ${credit}`, kind: 'web', entry: 'index.html', poster: 'preview.webp', category: 'dances', permissions: ['camera', 'microphone'] }, null, 2)], { type: 'application/json' }) },
     { path: 'content.md', blob: new Blob([`# ${title}\n\nA Copycat dance to ${credit}.${hashtags.length ? `\n\n${hashtags.map((t) => `#${t}`).join(' ')}` : ''}${song.page ? `\n\nSong: ${song.page}` : ''}\n\nCopy the ghost with your camera on a/copycat.\n`], { type: 'text/markdown' }) },
+    ...(audio ? [{ path: 'song.wav', blob: audio }] : []),
   ];
-  const big = files.find((f) => f.blob.size > MAX_FILE);
+  const big = files.some((f) => f.blob.size > MAX_FILE) || files.reduce((n, f) => n + f.blob.size, 0) > 2 * MAX_FILE;
   if (big) throw new Error('This dance is too long to post. Trim it to under 30 seconds.');
   return files;
 };
 
 export const publish = async (draft) => {
-  const files = danceFiles(draft);
+  const files = await danceFiles(draft);
   await bridge.hello;
   if (!bridge.available) {
     const blob = zip(await Promise.all(files.map(async (f) => ({ path: f.path, data: new Uint8Array(await f.blob.arrayBuffer()) }))));

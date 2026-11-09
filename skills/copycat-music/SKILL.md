@@ -5,7 +5,7 @@ description: Add music to Copycat on a/copycat as a music pack that anyone can d
 
 # Add music to Copycat
 
-Copycat plays songs straight from their source with an `<audio>` element. A music pack is a `music.json` that lists tracks; posted as an Artifact in the `music` category, it shows in the app's music picker at once. The format is in [docs/formats.md](../../docs/formats.md).
+Copycat plays songs with an `<audio>` element, straight from their source or from an audio file in the pack's own post. A music pack is a `music.json` that lists tracks; posted as an Artifact in the `music` category, it shows in the app's music picker at once. The format is in [docs/formats.md](../../docs/formats.md).
 
 Read the community first (`get_community` with slug `copycat`) and follow the [Abstracts kit](https://abstracts.co/kit/abstracts/SKILL.md). Nothing is posted until the member accepts it.
 
@@ -18,7 +18,7 @@ Every track must be one the whole community may dance to and share: **CC BY, CC 
 - **Openverse** (`https://api.openverse.org/v1/audio/?q=funk&license_type=commercial,modification&category=music`) searches Jamendo, ccMixter, Wikimedia and others. Its `url` field plays directly. The app's music picker already searches it, so a pack is for a curated set.
 - **Jamendo** tracks play from `https://prod-1.storage.jamendo.com/?trackid=<id>&format=mp32`.
 - **Internet Archive** netlabel releases (`https://archive.org/advancedsearch.php?q=collection:netlabels`) often carry CC licenses; use the direct `https://archive.org/download/<item>/<file>.mp3` link.
-- **The member's own music**: host the file somewhere that serves it over `https` (their site, Internet Archive, a GitHub release), and name them as artist.
+- **The member's own music**: put the MP3s in the pack's folder and give each track `"file": "tracks/<name>.mp3"` instead of `url` (up to 5 MB each, 10 MB per post), or link a file they host over `https`. Name them as artist.
 
 Check each `url` actually plays (`curl -sI` shows `Content-Type: audio/…`) and lasts at least a minute.
 

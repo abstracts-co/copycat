@@ -11,7 +11,7 @@ Read the community first (`get_community` with slug `copycat`, or https://abstra
 
 ## Record it (the member dances)
 
-In the app (the About page of https://abstracts.co/a/copycat): Play → Create a dance → choose a song, trim the clip → record → Preview your dance → name it → Publish dance. Abstracts shows its own sheet with the Artifact post; the member taps Post. You can't record for them: the moves have to be theirs.
+In the app (the About page of https://abstracts.co/a/copycat): Play → Create a dance → choose a song (or import one from the device: the trimmed clip posts with the dance, so only music the member made or that's free to share) and trim the clip → record → Preview your dance → name it → Publish dance. Abstracts shows its own sheet with the Artifact post; the member taps Post. You can't record for them: the moves have to be theirs.
 
 ## Build it from a video (you can do this)
 

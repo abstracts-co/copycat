@@ -59,7 +59,7 @@ export const MusicPicker = ({ asSheet, onUse, close }) => {
       </div>`}
       ${!query.trim() && !candidate && html`<span class="headline">Trending sounds</span>${trending.length ? html`<div class="col">${trending.map(row)}</div>` : html`<p class="secondary">Search for a song or import an audio file.</p>`}`}
       ${query.trim() && html`<div class="col">${results.map(row)}</div>`}
-      <p class="footnote secondary">Free music anyone may dance to and share, from Jamendo, ccMixter and Wikimedia, or a song file from your device.</p>
+      <p class="footnote secondary">Free music anyone may dance to and share, from Jamendo, ccMixter and Wikimedia, or a song file from your device. Use music you made or that’s free to share.</p>
     </div></div>`;
 };
 

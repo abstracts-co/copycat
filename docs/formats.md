@@ -23,6 +23,7 @@ A dance is what the creator recorded, the way the iPhone app stores it: their vi
 | `index.html` | Opens the app on this dance (copy it from any dance folder). |
 | `artifact.json` | `{"title", "description", "kind": "web", "entry": "index.html", "poster": "preview.webp", "category": "dances", "permissions": ["camera", "microphone"]}` |
 | `content.md` | The dance, song, artist and license in words. |
+| `song.wav` | Only when the dancer imported the song from their device: the trimmed clip (mono, 24 kHz) so everyone hears it. |
 
 Each file must be under 5 MB and the folder under 10 MB, so keep dances to about 30 seconds.
 
@@ -45,7 +46,8 @@ Each file must be under 5 MB and the folder under 10 MB, so keep dances to about
 - `clip.start`: where in the song the dance begins. `clip.offset`: where in the videos and pose it begins (non-zero after trimming). `clip.length`: seconds.
 - `mode`: `upper` scores arms (works sitting at a laptop); `full` also needs feet in view.
 - `privacy`: the creator recorded as a silhouette.
-- `song.source: "file"` means the creator used a song from their own device; players pick their own copy.
+- `song.source: "upload"` with `song.file: "song.wav"`: the dancer imported the song, and the post carries the clip. The app plays that file, so `clip.start` is 0.
+- `song.source: "file"` (older dances): the song stayed on the creator's device; players pick their own copy.
 - `credit`: who is in the video when it isn't the poster (a Creative Commons video, for example).
 
 ### pose.json
@@ -65,4 +67,5 @@ Each file must be under 5 MB and the folder under 10 MB, so keep dances to about
 ```
 
 - `license` must allow sharing and changes: CC BY, CC BY-SA, CC0 or public domain. No NC or ND licenses, nothing from a streaming service.
+- A track plays from `url`, or from `file`: a path to an audio file in the same post (`"file": "tracks/loop.mp3"`), so a library can carry its own music. MP3 keeps it small; files are up to 5 MB each and 10 MB per post, about 2 or 3 songs.
 - `bpm` and `segment` (a good 25 to 40 seconds to dance to) are optional; `tools/tempo.py` estimates them. The picker starts a clip at `segment[0]`.
