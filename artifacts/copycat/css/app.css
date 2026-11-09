@@ -64,7 +64,7 @@ img { display: block; }
 }
 .glassProminent.green { background: linear-gradient(180deg, #4be37a, #30d158); }
 .glassProminent.white { background: #fff; }
-.glass:active:not(:disabled), .glassProminent:active:not(:disabled) { transform: scale(0.96); }
+button.glass:active:not(:disabled), button.glassProminent:active:not(:disabled) { transform: scale(0.96); }
 .glass-surface { border-radius: 22px; }
 .size-small { height: 28px; padding: 0 12px; font-size: 15px; }
 .size-regular { height: 36px; padding: 0 14px; font-size: 15px; }
