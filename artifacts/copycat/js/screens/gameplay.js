@@ -45,13 +45,18 @@ const useCameraStage = (host, onFrame, { audio = false } = {}) => {
   return { camera, retry: () => setAttempt((n) => n + 1), ref: stageRef };
 };
 
-/** CopycatPlaybackPosition, simplified: shoulders and head in view, not too close, not too far. */
+/**
+ * CopycatPlaybackPosition, simplified: head and shoulders in view, and not so close that the arms can't fit. Distance is
+ * the shoulder span in view-height units, so the limit follows the picture's shape: on a wide laptop camera the arms
+ * have room at the sides long before the shoulders get small against its short height.
+ */
 const framing = (pose, mode, aspect) => {
   if (!pose) return { ready: false, message: null };
   const v = (j) => pose[j * 3 + 2] >= 0.35;
   if (!v(J.leftShoulder) || !v(J.rightShoulder) || !v(J.nose)) return { ready: false, message: 'Step back' };
   const span = Math.hypot((pose[J.leftShoulder * 3] - pose[J.rightShoulder * 3]) * aspect, pose[J.leftShoulder * 3 + 1] - pose[J.rightShoulder * 3 + 1]);
-  if (span > (mode === 'full' ? 0.17 : 0.3)) return { ready: false, message: 'Step back' };
+  const limit = Math.max(0.3, 0.45 * aspect) * (mode === 'full' ? 0.57 : 1);
+  if (span > limit) return { ready: false, message: 'Step back' };
   if (span < 0.06) return { ready: false, message: 'Get closer' };
   if (mode === 'full' && !(v(J.leftAnkle) && v(J.rightAnkle))) return { ready: false, message: 'Step back' };
   return { ready: true, message: null };
@@ -125,7 +130,7 @@ export const RecordingFlow = ({ params }) => {
     if (phase.name === 'armed') {
       const f = recent ? framing(toDance(pose, danceCrop(stage.aspect)), 'upper', STAGE.aspect) : { ready: false, message: null };
       if (f.message !== st.message) { st.message = f.message; tick((n) => n + 1); }
-      if (f.ready && tracker.people < 2) { st.readySince ??= now; if (now - st.readySince > 0.65) begin(countdownSeconds); } else st.readySince = null;
+      if (f.ready) { st.readySince ??= now; if (now - st.readySince > 0.65) begin(countdownSeconds); } else st.readySince = null;
     }
     if (phase.name === 'countdown') {
       const left = Math.ceil(st.countdownEnd - now);
@@ -250,7 +255,7 @@ export const PlayingFlow = ({ params }) => {
     if (setup === 'armed' || setup === 'countdown') {
       const f = recent ? framing(pose, dance.mode, stage.aspect) : { ready: false, message: null };
       if (f.message !== st.message) { st.message = f.message; tick((n) => n + 1); }
-      const ready = f.ready && tracker.people < 2;
+      const ready = f.ready;
       if (party) {
         party.setPositioned(ready);
         if (st.partyStart) { const left = Math.ceil((st.partyStart - party.serverNow()) / 1000); if (left <= 0) begin(); else if (left !== st.count) { st.count = left; setSetup('countdown'); tick((n) => n + 1); } }

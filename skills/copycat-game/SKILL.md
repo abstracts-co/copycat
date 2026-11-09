@@ -43,7 +43,7 @@ node tools/check.mjs                       # every folder within upload limits, 
 
 - http://localhost:8800/tools/host.html?user=alex stands in for abstracts.co: it answers the bridge as member `alex` and points parties at the local room server. Open a second browser with `?user=sam&a_room=<code>` to test a party.
 - Chrome can use a video as its webcam: `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream --use-file-for-fake-video-capture=dancer.y4m` (`ffmpeg -i in.webm -vf scale=540:960,fps=30 -pix_fmt yuv420p dancer.y4m`). Use an absolute path.
-- Check every screen at 393×852 with a portrait camera, in the About column, and full screen on a wide window with a 16:9 camera. The camera picture is always whole, fitted inside the view over a blurred copy: never cropped, zoomed or stretched. `openCamera` asks for `resizeMode: 'none'` so the browser doesn't crop the camera to the requested size. Headless Chrome on software GL runs tracking slowly; judge smoothness on a real device.
+- Check every screen at 393×852 with a portrait camera, in the About column, and full screen on a wide window with a 16:9 camera. The camera picture is always whole, fitted inside the view over a blurred copy: never cropped, zoomed or stretched. `openCamera` asks for `resizeMode: 'none'` so the browser doesn't crop the camera to the requested size. Also check "Step back" sitting close to a laptop camera with someone else in view: the tracker follows the biggest person, and the too-close limit follows the picture's shape. Headless Chrome on software GL runs tracking slowly; judge smoothness on a real device.
 
 A scoring change must keep `tools/test-score.mjs` passing. Files must stay under 5 MB each and 100 per folder.
 

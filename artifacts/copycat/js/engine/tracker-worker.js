@@ -13,6 +13,19 @@ const ready = (async () => {
   postMessage({ type: 'ready' });
 })().catch((e) => postMessage({ type: 'error', message: String(e?.message ?? e) }));
 
+// The dancer is the biggest person in view, so someone walking past or sitting behind doesn't take over.
+const dancer = (people) => {
+  let best = 0, size = -1;
+  people.forEach((lm, i) => {
+    const seen = lm.filter((p) => (p.visibility ?? 1) > 0.5);
+    if (!seen.length) return;
+    const xs = seen.map((p) => p.x), ys = seen.map((p) => p.y);
+    const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+    if (area > size) { size = area; best = i; }
+  });
+  return best;
+};
+
 let last = 0;
 onmessage = async ({ data }) => {
   await ready;
@@ -21,12 +34,12 @@ onmessage = async ({ data }) => {
   let pose = null, mask = null, people = 0;
   landmarker.detectForVideo(data.bitmap, ts, (r) => {
     people = r.landmarks?.length ?? 0;
-    const lm = r.landmarks?.[0];
+    const main = dancer(r.landmarks ?? []), lm = r.landmarks?.[main];
     if (lm) {
       pose = new Float32Array(INDEX.length * 3);
       INDEX.forEach((m, i) => { const p = lm[m], inside = p.x > -0.02 && p.x < 1.02 && p.y > -0.02 && p.y < 1.02; pose[i * 3] = p.x; pose[i * 3 + 1] = p.y; pose[i * 3 + 2] = inside ? (p.visibility ?? 1) : 0; });
     }
-    const m = r.segmentationMasks?.[0];
+    const m = r.segmentationMasks?.[main];
     if (m) mask = new Uint8Array(m.getAsUint8Array());
   });
   data.bitmap.close();
