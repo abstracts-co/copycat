@@ -122,44 +122,52 @@ export const drawPerimeter = (ctx, w, h, progress, time, scale) => {
 
 /**
  * The camera stage: the whole camera picture (or the privacy silhouette or background swap) at the camera's own aspect,
- * the creator's 9:16 ghost placed over it, and an effects layer for trails and progress. The picture and ghost canvases
- * are shown with object-fit: cover; the effects layer is drawn at screen resolution through the same cover mapping.
+ * fitted inside the view and never cropped or stretched, over a blurred copy that fills the rest. The creator's 9:16
+ * ghost is placed over the picture, and an effects layer for trails and progress covers the whole view.
  */
 export class Stage {
   constructor(host) {
     this.host = host;
-    this.picture = Object.assign(document.createElement('canvas'), { width: 960, height: 540, className: 'cover' });
-    this.ghostCanvas = Object.assign(document.createElement('canvas'), { width: 960, height: 540, className: 'cover' });
+    const canvas = (className) => Object.assign(document.createElement('canvas'), { width: 960, height: 540, className });
+    this.backdrop = canvas('blurfill'); this.picture = canvas('placed'); this.ghostCanvas = canvas('placed');
     this.fx = document.createElement('canvas');
-    host.append(this.picture, this.ghostCanvas, this.fx);
+    host.append(this.backdrop, this.picture, this.ghostCanvas, this.fx);
     this.ctx = this.picture.getContext('2d');
+    this.backdropCtx = this.backdrop.getContext('2d');
     this.ghost = new GhostLayer(this.ghostCanvas);
     this.fxCtx = this.fx.getContext('2d');
-    this.person = Object.assign(document.createElement('canvas'), { width: 960, height: 540 });
+    this.person = canvas('');
     this.personCtx = this.person.getContext('2d');
     this.live = new Trails(LIVE_TINT); this.reference = new Trails(REFERENCE_TINT);
     this.aspect = 16 / 9;
   }
   fit(video) {
     const aspect = video.videoWidth / video.videoHeight;
-    if (!aspect || Math.abs(aspect - this.aspect) < 0.01 && this.sized) return;
-    const { w, h } = fitSize(aspect, 960);
-    for (const c of [this.picture, this.ghostCanvas, this.person]) { c.width = w; c.height = h; }
-    this.aspect = aspect; this.sized = true;
+    if (!aspect || (this.sized && Math.abs(aspect - this.aspect) < 0.01)) return;
+    const size = (c, long) => { const f = fitSize(aspect, long); c.width = f.w; c.height = f.h; };
+    const long = Math.min(1280, Math.max(video.videoWidth, video.videoHeight));
+    size(this.picture, long); size(this.person, long); size(this.ghostCanvas, 960); size(this.backdrop, 48);
+    this.aspect = aspect; this.sized = true; this.placedAt = null;
   }
   resize() {
     const r = this.host.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
     const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr), pw = this.picture.width, ph = this.picture.height;
     if (this.fx.width !== w || this.fx.height !== h) { this.fx.width = w; this.fx.height = h; }
-    const s = Math.max(w / pw, h / ph);
-    this.cover = { s, ox: (w - pw * s) / 2, oy: (h - ph * s) / 2, w, h, dpr };
-    return this.cover;
+    const s = Math.min(w / pw, h / ph);
+    this.view = { s, ox: (w - pw * s) / 2, oy: (h - ph * s) / 2, w, h, dpr };
+    const key = `${w}x${h}:${pw}x${ph}`;
+    if (this.placedAt !== key) {
+      this.placedAt = key;
+      const css = { left: `${this.view.ox / dpr}px`, top: `${this.view.oy / dpr}px`, width: `${(pw * s) / dpr}px`, height: `${(ph * s) / dpr}px` };
+      for (const c of [this.picture, this.ghostCanvas]) Object.assign(c.style, css);
+    }
+    return this.view;
   }
-  map = (x, y) => [this.cover.ox + x * this.picture.width * this.cover.s, this.cover.oy + y * this.picture.height * this.cover.s];
+  map = (x, y) => [this.view.ox + x * this.picture.width * this.view.s, this.view.oy + y * this.picture.height * this.view.s];
   drawPicture(video, tracker, { privacy = false, background = null } = {}) {
     this.fit(video);
     const ctx = this.ctx, W = this.picture.width, H = this.picture.height;
-    if (!privacy && !background) { drawMirrored(ctx, video, W, H); return; }
+    if (!privacy && !background) { drawMirrored(ctx, video, W, H); this.drawBackdrop(); return; }
     const pc = this.personCtx;
     pc.globalCompositeOperation = 'source-over'; pc.clearRect(0, 0, W, H);
     if (privacy) { pc.fillStyle = '#262626'; pc.fillRect(0, 0, W, H); } else drawMirrored(pc, video, W, H);
@@ -168,7 +176,9 @@ export class Stage {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     if (background && !privacy) drawBackground(ctx, background.image, background.placement, W, H);
     ctx.drawImage(this.person, 0, 0);
+    this.drawBackdrop();
   }
+  drawBackdrop() { this.backdropCtx.drawImage(this.picture, 0, 0, this.backdrop.width, this.backdrop.height); }
   drawGhost(source, transform, opacity) { this.ghost.draw(source, transform, opacity, this.aspect); }
   clearGhost() { this.ghost.clear(); }
   beginFx() { const c = this.resize(); this.fxCtx.clearRect(0, 0, c.w, c.h); return c; }
@@ -176,12 +186,12 @@ export class Stage {
   drawCropGuide() {
     const crop = danceCrop(this.aspect);
     if (crop.w > 0.98 && crop.h > 0.98) return;
-    const ctx = this.fxCtx, c = this.cover, [x0, y0] = this.map(crop.x, crop.y), [x1, y1] = this.map(crop.x + crop.w, crop.y + crop.h);
+    const ctx = this.fxCtx, c = this.view, [x0, y0] = this.map(crop.x, crop.y), [x1, y1] = this.map(crop.x + crop.w, crop.y + crop.h);
     ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, 0, x0, c.h); ctx.fillRect(x1, 0, c.w - x1, c.h); ctx.fillRect(x0, 0, x1 - x0, y0); ctx.fillRect(x0, y1, x1 - x0, c.h - y1);
     ctx.restore();
   }
-  dispose() { this.picture.remove(); this.ghostCanvas.remove(); this.fx.remove(); }
+  dispose() { for (const c of [this.backdrop, this.picture, this.ghostCanvas, this.fx]) c.remove(); }
 }
 
 export const drawBackground = (ctx, image, placement = { scale: 1, x: 0, y: 0 }, W, H) => {

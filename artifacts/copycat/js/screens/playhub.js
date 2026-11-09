@@ -8,8 +8,8 @@ export const PlayHubView = () => {
   const box = useRef(), [state, setState] = useState('opening');
   useEffect(() => {
     let cam, gone = false;
-    openCamera().then((c) => { if (gone) { c.stop(); return; } cam = c; c.video.setAttribute('aria-hidden', 'true'); box.current.prepend(c.video); setState('running'); }).catch(() => !gone && setState('unavailable'));
-    return () => { gone = true; cam?.stop(); cam?.video.remove(); };
+    openCamera().then((c) => { if (gone) { c.stop(); return; } cam = c; const blur = Object.assign(document.createElement('video'), { muted: true, playsInline: true, srcObject: c.stream, className: 'blurfill' }); blur.play().catch(() => {}); for (const v of [c.video, blur]) v.setAttribute('aria-hidden', 'true'); box.current.prepend(blur, c.video); cam.blur = blur; setState('running'); }).catch(() => !gone && setState('unavailable'));
+    return () => { gone = true; cam?.stop(); cam?.video.remove(); cam?.blur?.remove(); };
   }, []);
   return html`<div class="play-hub" ref=${box}>
     ${state !== 'running' && html`<div style="position:absolute;top:calc(40px + var(--safe-top));left:0;right:0">${state === 'opening' ? html`<${ProgressView} label="Opening camera…" />` : html`<p class="footnote secondary center">Camera needs attention. Open Create to retry.</p>`}</div>`}

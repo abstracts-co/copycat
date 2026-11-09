@@ -100,7 +100,7 @@ export const toDance = (pose, crop) => {
 
 export const openCamera = async ({ audio = false } = {}) => {
   if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('This browser can’t open a camera here.'), { name: 'Unavailable' });
-  const stream = await navigator.mediaDevices.getUserMedia({ audio, video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
+  const stream = await navigator.mediaDevices.getUserMedia({ audio, video: { facingMode: 'user', resizeMode: 'none', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
   const video = document.createElement('video');
   video.playsInline = true; video.muted = true; video.srcObject = stream;
   await video.play();

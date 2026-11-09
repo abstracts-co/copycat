@@ -1,7 +1,7 @@
 import { html, render, useStore, cls } from './lib.js';
 import { Icon } from './icons.js';
 import { Overlays } from './ui.js';
-import { store, nav, loadFeed } from './data/store.js';
+import { store, nav, loadFeed, recallViewer } from './data/store.js';
 import { bridge } from './data/bridge.js';
 import { HomeView } from './screens/home.js';
 import { PlayHubView } from './screens/playhub.js';
@@ -28,7 +28,7 @@ const Root = () => {
   return html`<div class=${cls('screen', covered && 'covered')} style=${covered ? '' : 'animation:none'}>
     <div class="tab-pane" hidden=${tab !== 'home'}><${HomeView} /></div>
     <div class="tab-pane" hidden=${tab !== 'dance'}>${tab === 'dance' && !covered && html`<${PlayHubView} />`}</div>
-    <div class="tab-pane" hidden=${tab !== 'profile'}><${ProfileView} params=${{ handle: viewer?.username, own: true }} root active=${tab === 'profile'} /></div>
+    <div class="tab-pane" hidden=${tab !== 'profile'}><${ProfileView} params=${{ handle: viewer?.username, own: true }} root /></div>
     <nav class="tabbar glass" aria-label="Tabs">${TABS.map(([k, label, icon, on]) => html`<button class=${cls('tab', tab === k && 'on')} aria-current=${tab === k ? 'page' : undefined} onClick=${() => nav.tab(k)}><${Icon} name=${tab === k ? on : icon} />${label}</button>`)}</nav>
   </div>`;
 };
@@ -67,6 +67,7 @@ const start = async () => {
   render(html`<${App} />`, document.getElementById('app'));
   const info = await bridge.hello;
   if (info?.community) store.set({ community: info.community });
+  recallViewer();
   await loadFeed();
   const launch = info?.launch ?? Object.fromEntries(new URLSearchParams(location.search));
   if (launch.room) nav.push('lobby', { room: launch.room.toUpperCase() });

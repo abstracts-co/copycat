@@ -1,16 +1,14 @@
 import { html, useStore, useEffect, useState, compact } from '../lib.js';
 import { drafts } from '../data/publish.js';
 import { Button, Avatar, Media, NavBar, ProgressView, Empty, confirmDialog, sheet, toast } from '../ui.js';
-import { store, nav, profileModel, loadProfile, ensureViewer } from '../data/store.js';
+import { store, nav, profileModel, loadProfile } from '../data/store.js';
 import { bridge } from '../data/bridge.js';
 import { share, openOnAbstracts, openNotifications, guarded } from './actions.js';
 import { ReportSheet } from './more.js';
 
-export const ProfileView = ({ params, root, active }) => {
+export const ProfileView = ({ params, root }) => {
   const viewer = useStore(store, (s) => s.viewer);
   const handle = params?.handle ?? (root ? viewer?.username : null);
-  const [who, setWho] = useState(null);
-  useEffect(() => { if (root && active && !viewer) ensureViewer().catch((e) => setWho(e.code)); }, [root, active, viewer]);
   const own = root || (!!viewer && viewer.username === handle);
   const version = useStore(store, (s) => s.draftsVersion), [mine, setMine] = useState([]);
   useEffect(() => { if (own) drafts.list().then(setMine); }, [version, own]);
@@ -18,7 +16,7 @@ export const ProfileView = ({ params, root, active }) => {
   useStore(store, (s) => s.profiles[handle]);
   useEffect(() => { if (handle) loadProfile(handle); }, [handle]);
   if (root && !handle) return html`<${NavBar} title="Profile" right=${html`<${Button} icon="bell" iconOnly label="Notifications" tint="tinted" onClick=${openNotifications} />`} />
-    <div class="scroll"><${Empty} icon="person.crop.circle" title="Your profile" message=${who === 'signed_out' ? 'Sign in on abstracts to see your profile.' : 'Your abstracts account is your Copycat profile.'} /></div>`;
+    <div class="scroll"><${Empty} icon="person.crop.circle" title="Your profile" message=${bridge.info && !bridge.info.signedIn ? 'Sign in on abstracts to see your profile.' : 'Like, post or join a party and your abstracts profile shows here.'} /></div>`;
   const m = profileModel(handle), u = m.user;
 
   const ownerControls = html`<div class="row" style="gap:10px">

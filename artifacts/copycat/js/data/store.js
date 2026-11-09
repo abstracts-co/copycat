@@ -100,7 +100,10 @@ export const loadProfile = async (handle) => {
   if (u) store.set((s) => ({ profiles: { ...s.profiles, [handle]: u } }));
 };
 
-/** Who's playing, asked through abstracts.co the first time it matters. */
+/**
+ * Who's playing, asked through abstracts.co the first time the member does something that needs it. Abstracts asks the
+ * member once; after that the same member is known again on every visit without asking.
+ */
 export const ensureViewer = async ({ quiet = false } = {}) => {
   if (store.get().viewer) return store.get().viewer;
   await bridge.hello;
@@ -108,10 +111,12 @@ export const ensureViewer = async ({ quiet = false } = {}) => {
   try {
     const v = await bridge.call('viewer');
     const viewer = { ...v, avatar: v.avatar ? new URL(v.avatar, HOST).href : null };
+    storage.set('known', true);
     store.set({ viewer });
     return viewer;
   } catch (e) { if (quiet) return null; throw e; }
 };
+export const recallViewer = () => (bridge.info?.signedIn && storage.get('known', false) ? ensureViewer({ quiet: true }) : null);
 
 export const toggleLike = async (dance) => {
   const s = store.get();

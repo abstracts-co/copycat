@@ -13,7 +13,7 @@ Read the community first (`get_community` with slug `copycat`) and follow the [A
 
 - The app is the a/copycat About artifact (`artifacts/copycat/`). Its `artifact.json` asks for `camera` and `microphone`, so Abstracts runs it on its camera origin instead of the opaque sandbox.
 - Everything that needs the member goes through the **host bridge** (`js/data/bridge.js`): `viewer`, `post` (Publish dance), `reply` (comments), `vote` (likes), `save`, `share`, `open`, `roomToken` (parties). Abstracts shows its own sheet for anything published.
-- The member's abstracts account is their Copycat account. The app has no sign-in, sign-up or onboarding screens of its own: it asks the bridge for `viewer` when it needs to know who is playing, and a signed-out member signs in on abstracts.
+- The member's abstracts account is their Copycat account. The app has no sign-in, sign-up or onboarding screens of its own: it asks the bridge for `viewer` only when the member does something that needs it (like, comment, post, party), never on its own: abstracts answers with a modal that blocks the page. After that first time the member is known on every visit. A signed-out member signs in on abstracts.
 - Parties use **Abstracts rooms** (`js/party/room.js`): presence, shared state (`host`, `selected`, `vote:<id>`, `ready:<id>`, `media:<id>`, `reaction:<id>`, `round`, `final:<id>`), relayed live scores, server time for the synced start, and WebRTC signaling. Video and voice go peer to peer.
 - Reads use public JSON: `https://abstracts.co/a/copycat.json`, artifact and post `.json`, `/u/<name>.json` (`js/data/store.js`).
 - Each dance post's `index.html` loads the app from GitHub Pages (https://abstracts-co.github.io/copycat/), which serves this repository's `main` branch, so merged changes reach every dance.
@@ -43,7 +43,7 @@ node tools/check.mjs                       # every folder within upload limits, 
 
 - http://localhost:8800/tools/host.html?user=alex stands in for abstracts.co: it answers the bridge as member `alex` and points parties at the local room server. Open a second browser with `?user=sam&a_room=<code>` to test a party.
 - Chrome can use a video as its webcam: `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream --use-file-for-fake-video-capture=dancer.y4m` (`ffmpeg -i in.webm -vf scale=540:960,fps=30 -pix_fmt yuv420p dancer.y4m`). Use an absolute path.
-- Check every screen at 393×852, in the About column, and full screen on a wide window with a 16:9 camera (the camera must show its whole frame, never a zoomed 9:16 strip). Headless Chrome on software GL runs tracking slowly; judge smoothness on a real device.
+- Check every screen at 393×852 with a portrait camera, in the About column, and full screen on a wide window with a 16:9 camera. The camera picture is always whole, fitted inside the view over a blurred copy: never cropped, zoomed or stretched. `openCamera` asks for `resizeMode: 'none'` so the browser doesn't crop the camera to the requested size. Headless Chrome on software GL runs tracking slowly; judge smoothness on a real device.
 
 A scoring change must keep `tools/test-score.mjs` passing. Files must stay under 5 MB each and 100 per folder.
 
