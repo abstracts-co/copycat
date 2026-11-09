@@ -2,7 +2,7 @@ import { html, useStore, useEffect, useState, useRef, clock, clockTenths } from 
 import { Icon } from '../icons.js';
 import { Button, Media, NavBar, ProgressView, TrimStrip, Spinner } from '../ui.js';
 import { store, nav, homeModel } from '../data/store.js';
-import { preview, searchSongs, importedSong } from '../engine/music.js';
+import { preview, searchSongs, importedSong, youtubeId, youtubeLink, searchYouTube } from '../engine/music.js';
 
 const STARTER = new URL('../../library/music.json', import.meta.url);
 let starter = null;
@@ -25,25 +25,35 @@ export const MusicPicker = ({ asSheet, onUse, close }) => {
     preview.stop(); setCandidate({ song, file: f });
     const s0 = song.segment ? song.segment[0] : 0, e0 = Math.min(s0 + 30, song.duration || 30);
     setStart(s0); setEnd(e0);
-    if (autoplay) preview.play(song, s0, e0 - s0, f);
+    if (autoplay) preview.play(song, s0, e0 - s0, f).then(() => {
+      const d = preview.clock?.song === song && !song.duration ? preview.clock.duration : 0;
+      if (d) { setCandidate({ song: { ...song, duration: d }, file: f }); setEnd(Math.min(s0 + 30, d)); }
+    });
   };
   const search = async () => {
     if (!query.trim()) return;
     setLoading(true); setError(null);
-    try { setResults(await searchSongs(query.trim())); } catch (e) { setError(e.message); } finally { setLoading(false); }
+    try {
+      const q = query.trim(), id = youtubeId(q);
+      if (id) { setResults([]); show(await youtubeLink(id)); return; }
+      const youtube = await searchYouTube(q).catch(() => []);
+      let free = [];
+      try { free = await searchSongs(q); } catch (e) { if (!youtube.length) throw e; }
+      setResults([...youtube, ...free]);
+    } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
   const importFile = () => file.current.click();
   const onFile = async () => { const f = file.current.files[0]; if (!f) return; try { const { song, file: fl } = await importedSong(f); show(song, fl); } catch (e) { setError(e.message); } };
   const use = () => { preview.stop(); onUse({ song: candidate.song, file: candidate.file, start, length: end - start }); close?.(); };
   const row = (s) => html`<button class="row" style="gap:12px;width:100%;min-height:44px;padding:10px 0;text-align:left" onClick=${() => show(s)}>
-    <${Cover} song=${s} /><div class="col" style="gap:4px;min-width:0;flex:1"><span class="line1">${s.title}</span><span class="caption secondary line1">${[s.artist, s.license].filter(Boolean).join(' · ')}</span></div></button>`;
+    <${Cover} song=${s} /><div class="col" style="gap:4px;min-width:0;flex:1"><span class="line1">${s.title}</span><span class="caption secondary line1">${[s.artist, s.license || (s.youtube && 'YouTube')].filter(Boolean).join(' · ')}</span></div></button>`;
   const importBtn = html`<${Button} icon="square.and.arrow.down" iconOnly label="Import an audio file" onClick=${importFile} />`;
   return html`${asSheet ? html`<div class="row" style="height:56px;gap:8px;margin-top:-8px"><span class="headline spacer">Select song</span>${importBtn}<${Button} label="Done" onClick=${close} /></div>`
       : html`<${NavBar} title="Find your sound" onBack=${nav.pop} right=${importBtn} />`}
     <input type="file" accept="audio/*" hidden ref=${file} onChange=${onFile} />
     <div class=${asSheet ? '' : 'scroll'}><div class="col" style=${`gap:16px;${asSheet ? '' : 'padding:20px'}`}>
       <form class="textfield" onSubmit=${(e) => { e.preventDefault(); search(); }}>
-        <input type="search" placeholder="Search songs or artists" value=${query} onInput=${(e) => setQuery(e.target.value)} enterkeyhint="search" autocapitalize="off" autocorrect="off" aria-label="Search songs or artists" />
+        <input type="search" placeholder="Search songs or paste a YouTube link" value=${query} onInput=${(e) => setQuery(e.target.value)} enterkeyhint="search" autocapitalize="off" autocorrect="off" aria-label="Search songs or artists" />
         <button type="submit" class="accent" style="min-width:44px;min-height:44px" disabled=${!query.trim()}>Search</button></form>
       ${loading && html`<${ProgressView} label="Searching" />`}
       ${error && html`<p class="footnote" style="color:#ff9f0a">${error}</p>`}
@@ -59,7 +69,7 @@ export const MusicPicker = ({ asSheet, onUse, close }) => {
       </div>`}
       ${!query.trim() && !candidate && html`<span class="headline">Trending sounds</span>${trending.length ? html`<div class="col">${trending.map(row)}</div>` : html`<p class="secondary">Search for a song or import an audio file.</p>`}`}
       ${query.trim() && html`<div class="col">${results.map(row)}</div>`}
-      <p class="footnote secondary">Free music anyone may dance to and share, from Jamendo, ccMixter and Wikimedia, or a song file from your device. Use music you made or that’s free to share.</p>
+      <p class="footnote secondary">Free music from Jamendo, ccMixter and Wikimedia, songs from YouTube, or a file from your device. Upload only music you made or that’s free to share.</p>
     </div></div>`;
 };
 

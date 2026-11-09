@@ -34,6 +34,55 @@ export class SongClock {
   stop() { this.audio.pause(); if (this.audio.src.startsWith('blob:')) URL.revokeObjectURL(this.audio.src); this.audio.removeAttribute('src'); }
 }
 
+let youtubeApi = null;
+const loadYouTube = () => youtubeApi ??= new Promise((resolve, reject) => {
+  if (window.YT?.Player) return resolve(window.YT);
+  const ready = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = () => { ready?.(); resolve(window.YT); };
+  document.head.append(Object.assign(document.createElement('script'), { src: 'https://www.youtube.com/iframe_api', onerror: () => { youtubeApi = null; reject(new Error('YouTube won’t load right now.')); } }));
+});
+
+/** A YouTube song plays in YouTube's own player, kept visible at YouTube's 200×200 minimum; its position is the clock. */
+export class YouTubeClock {
+  constructor(song) {
+    this.song = song; this.state = -1; this.last = null;
+    this.box = Object.assign(document.createElement('div'), { className: 'yt-window' });
+    const slot = document.createElement('div');
+    this.box.append(slot, Object.assign(document.createElement('p'), { className: 'yt-hint', textContent: 'Tap the video to start' }));
+    document.getElementById('app').append(this.box);
+    this.loaded = loadYouTube().then((YT) => new Promise((resolve, reject) => {
+      this.player = new YT.Player(slot, {
+        width: 200, height: 200, videoId: song.youtube, playerVars: { playsinline: 1, rel: 0 },
+        events: {
+          onReady: () => resolve(),
+          onError: () => reject(new Error('This YouTube video won’t play here.')),
+          onStateChange: (e) => { this.state = e.data; if (e.data === 1) { clearTimeout(this.hint); this.box.classList.remove('tap'); this.onPlaying?.(); this.onPlaying = null; } },
+        },
+      });
+    }));
+  }
+  ready() { return this.loaded; }
+  get duration() { return this.player?.getDuration?.() || this.song.duration || 0; }
+  set muted(v) { if (v) this.player?.mute(); else this.player?.unMute(); }
+  async play(from) { await this.loaded; this.seek(from); return this.resume(); }
+  pause() { this.player?.pauseVideo(); }
+  resume() {
+    this.player?.playVideo();
+    return new Promise((resolve) => { if (this.state === 1) return resolve(); this.onPlaying = resolve; clearTimeout(this.hint); this.hint = setTimeout(() => this.box.classList.add('tap'), 1500); });
+  }
+  seek(t) { this.player?.seekTo(Math.max(0, t), true); this.last = null; }
+  get paused() { return this.state !== 1; }
+  now() {
+    const a = this.player?.getCurrentTime?.() ?? 0, p = performance.now() / 1000;
+    if (this.state !== 1) { this.last = null; return a; }
+    if (!this.last || a !== this.last.a) this.last = { a, p };
+    return this.last.a + Math.min(1, p - this.last.p);
+  }
+  stop() { clearTimeout(this.hint); this.player?.destroy?.(); this.box.remove(); }
+}
+
+export const makeClock = (song, file = null) => (song.youtube && !file ? new YouTubeClock(song) : new SongClock(song, file));
+
 /** One clip preview at a time, looping the selected range like the picker on iPhone. */
 export const preview = new (class {
   constructor() { this.clock = null; this.listeners = new Set(); this.state = { playing: false, loading: false, position: 0, key: null }; }
@@ -41,7 +90,7 @@ export const preview = new (class {
   subscribe(l) { this.listeners.add(l); return () => this.listeners.delete(l); }
   async play(song, start, length, file = null, key = song.url || song.title) {
     this.stop();
-    const clock = new SongClock(song, file); this.clock = clock;
+    const clock = makeClock(song, file); this.clock = clock;
     this.emit({ loading: true, playing: false, key, position: start });
     try { await clock.ready(); if (this.clock !== clock) return; await clock.play(start); } catch { if (this.clock === clock) this.emit({ loading: false, playing: false }); return; }
     this.emit({ loading: false, playing: true });
@@ -71,6 +120,26 @@ export const searchSongs = async (q) => {
     id: `openverse:${x.id}`, title: x.title, artist: x.creator, url: x.url, artwork: x.thumbnail, page: x.foreign_landing_url, source: x.source,
     duration: x.duration / 1000, license: `${LICENSES[x.license] ?? x.license.toUpperCase()} ${x.license_version ?? ''}`.trim(), licenseUrl: x.license_url,
   })).filter(Boolean);
+};
+
+const YOUTUBE_KEY = '';
+const youtubeSong = ({ id, title, artist, artwork }) => cleanSong({ id: `youtube:${id}`, title, artist, artwork, url: `https://www.youtube.com/watch?v=${id}`, page: `https://www.youtube.com/watch?v=${id}`, source: 'youtube', youtube: id });
+const decode = (s) => new DOMParser().parseFromString(String(s ?? ''), 'text/html').documentElement.textContent;
+export const youtubeId = (text) => text.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/)?.[1] ?? null;
+export const youtubeLink = async (id) => {
+  const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`);
+  if (!r.ok) throw new Error('That YouTube video can’t be found, or its owner doesn’t allow it on other sites.');
+  const o = await r.json();
+  return youtubeSong({ id, title: o.title, artist: o.author_name, artwork: o.thumbnail_url });
+};
+export const searchYouTube = async (q) => {
+  if (!YOUTUBE_KEY) return [];
+  const url = new URL('https://www.googleapis.com/youtube/v3/search');
+  url.search = new URLSearchParams({ part: 'snippet', type: 'video', videoEmbeddable: 'true', videoCategoryId: '10', maxResults: '15', q, key: YOUTUBE_KEY });
+  const r = await fetch(url);
+  if (!r.ok) return [];
+  const { items = [] } = await r.json();
+  return items.map((x) => youtubeSong({ id: x.id?.videoId, title: decode(x.snippet?.title), artist: decode(x.snippet?.channelTitle), artwork: x.snippet?.thumbnails?.medium?.url })).filter((s) => s?.youtube);
 };
 
 export const importedSong = (file) => new Promise((resolve, reject) => {

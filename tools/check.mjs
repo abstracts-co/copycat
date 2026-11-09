@@ -19,7 +19,7 @@ for (const id of readdirSync(root).filter((f) => statSync(join(root, f)).isDirec
     for (const f of Object.values(d.files)) assert.ok(existsSync(join(dir, f)), `${id}: missing ${f}`);
     const pose = parsePose(JSON.parse(readFileSync(join(dir, d.files.pose), 'utf8')));
     assert.ok(pose.length >= d.clip.length - 1, `${id}: pose is shorter than the clip`);
-    assert.ok(/^CC (BY|BY-SA) |^CC0|^Public domain/.test(d.song.license) || ['file', 'upload'].includes(d.song.source), `${id}: the song needs a license everyone may dance to`);
+    assert.ok(/^CC (BY|BY-SA) |^CC0|^Public domain/.test(d.song.license) || ['file', 'upload', 'youtube'].includes(d.song.source), `${id}: the song needs a license everyone may dance to`);
     if (d.song.file) assert.ok(existsSync(join(dir, d.song.file)), `${id}: missing ${d.song.file}`);
     dances++;
   }

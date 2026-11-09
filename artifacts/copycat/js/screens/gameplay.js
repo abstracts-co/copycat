@@ -6,7 +6,7 @@ import { parsePose, sample } from '../data/format.js';
 import { loadTracker, openCamera, Tracker, STAGE, J, danceCrop, toDance } from '../engine/pose.js';
 import { Stage, GhostAlign, applyTransform, drawPerimeter } from '../engine/stage.js';
 import { DanceRecorder } from '../engine/recorder.js';
-import { SongClock } from '../engine/music.js';
+import { makeClock } from '../engine/music.js';
 import { Scorer, grade } from '../engine/score.js';
 import { MusicPicker } from './picker.js';
 import { findDance } from './dance.js';
@@ -148,14 +148,17 @@ export const RecordingFlow = ({ params }) => {
   const begin = (n) => { if (s.current.counting) return; s.current.counting = true; s.current.countdownEnd = performance.now() / 1000 + n; setPhase({ name: 'countdown', value: n }); };
   const startRecording = async (stage, tracker) => {
     const st = s.current;
-    if (st.recorder) return;
+    if (st.recorder || st.starting) return;
+    st.starting = true;
     try {
+      st.clock = makeClock(choice.song, choice.file);
+      await st.clock.ready();
+      await st.clock.play(choice.start);
       st.recorder = new DanceRecorder(stage, tracker, { privacy });
-      st.clock = new SongClock(choice.song, choice.file);
       st.recorder.start(choice.length);
       setPhase({ name: 'recording' });
-      await st.clock.play(choice.start);
-    } catch (e) { st.recorder?.cancel(); st.recorder = null; setPhase({ name: 'idle' }); alertDialog({ title: 'Couldn’t record', message: e.message }); }
+    } catch (e) { st.clock?.stop(); st.recorder?.cancel(); st.recorder = null; setPhase({ name: 'idle' }); alertDialog({ title: 'Couldn’t record', message: e.message }); }
+    finally { st.starting = false; }
   };
   const stop = async () => {
     const st = s.current; if (!st.recorder || st.stopping) return;
@@ -233,7 +236,7 @@ export const PlayingFlow = ({ params }) => {
     if (st.begun) return; st.begun = true;
     const scorer = new Scorer({ frames: st.playable.pose.frames, length: st.playable.pose.length, mode: d.mode, aspect: STAGE.aspect }, st.viewAspect ?? STAGE.aspect, onWindow);
     st.scorer = scorer;
-    st.clock = new SongClock(d.song, params.file ?? null);
+    st.clock = makeClock(d.song, params.file ?? null);
     try { await st.clock.ready(); } catch (e) { setError(e.message); return; }
     setSetup('playing');
     await st.clock.play(d.clip.start).catch(() => {});

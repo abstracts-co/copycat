@@ -9,7 +9,7 @@ export const SongPageView = ({ params }) => {
   const anchor = findDance(params.id), song = anchor?.song;
   const audio = useRef(null), [playing, setPlaying] = useState(false), [elapsed, setElapsed] = useState(0), [duration, setDuration] = useState(song?.duration ?? 0), [loading, setLoading] = useState(true), [error, setError] = useState(null);
   useEffect(() => {
-    if (!song?.url) { setLoading(false); setError(song?.source === 'file' ? 'This song came from the dancer’s device.' : null); return; }
+    if (song?.youtube || !song?.url) { setLoading(false); setError(song?.source === 'file' ? 'This song came from the dancer’s device.' : null); return; }
     const a = new Audio(song.url); audio.current = a;
     a.addEventListener('loadedmetadata', () => { setDuration(a.duration); setLoading(false); });
     a.addEventListener('timeupdate', () => setElapsed(a.currentTime));
@@ -26,11 +26,11 @@ export const SongPageView = ({ params }) => {
       <div class="col" style="gap:6px;min-width:0"><span class="title2 semibold">${song.title}</span><span class="secondary">${song.artist}</span>
         ${song.license && html`<a class="caption secondary" href=${song.licenseUrl || song.page} target="_blank" rel="noopener">${song.license}</a>`}</div>
     </div>
-    <div class="row" style="gap:16px">
+    ${song.youtube ? html`<iframe class="yt-embed" src=${`https://www.youtube.com/embed/${song.youtube}?playsinline=1&rel=0${song.segment ? `&start=${Math.floor(song.segment[0])}` : ''}`} title=${song.title} allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>` : html`    <div class="row" style="gap:16px">
       <${Button} style="glassProminent" size="large" iconOnly icon=${playing ? 'pause.fill' : 'play.fill'} label=${playing ? 'Pause' : 'Play'} disabled=${loading || !duration} onClick=${() => { const a = audio.current; if (!a) return; if (a.paused) { if (a.currentTime < 1 && song.segment) a.currentTime = song.segment[0]; a.play(); } else a.pause(); }} />
       <input type="range" min="0" max=${Math.max(0.1, duration)} step="0.1" value=${elapsed} disabled=${loading || !duration} style="flex:1;accent-color:var(--accent)" onInput=${(e) => { if (audio.current) audio.current.currentTime = Number(e.target.value); }} aria-label="Position" />
       <span class="caption mono secondary">${duration ? clock(duration) : '0:30'}</span>
-    </div>
+    </div>`}
     ${loading && song.url && html`<${ProgressView} label="Loading original track" />`}
     ${error && html`<p class="footnote secondary">${error}</p>`}
     <${SectionHeading} title="Top dances" />
