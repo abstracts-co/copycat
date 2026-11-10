@@ -1,0 +1,12 @@
+{
+  "title": "Choosin' Texas",
+  "description": "A Copycat dance to “Choosin' Texas” by Ella Langley (Apple Music)",
+  "kind": "web",
+  "entry": "index.html",
+  "poster": "preview.webp",
+  "category": "dances",
+  "permissions": [
+    "camera",
+    "microphone"
+  ]
+}
