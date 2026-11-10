@@ -27,3 +27,10 @@ export const addFriend = guarded(async () => {
 });
 export const danceLink = (d) => d.post?.url ?? d.url ?? `${HOST}/a/${store.get().community}`;
 export const shareDance = (d) => share(danceLink(d), `“${d.title}” on Copycat`);
+export const deleteDance = guarded(async (d) => {
+  if (!d.post) throw new Error('Delete this dance on abstracts.co.');
+  await bridge.hello;
+  await bridge.call('deletePost', { post: d.post.number });
+  store.set((s) => ({ feed: { ...s.feed, dances: s.feed.dances.filter((x) => x.id !== d.id) } }));
+  nav.pop();
+});

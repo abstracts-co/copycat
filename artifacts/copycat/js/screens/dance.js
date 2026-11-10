@@ -3,7 +3,7 @@ import { Icon } from '../icons.js';
 import { Button, Avatar, NavBar, Spinner, sheet, menu, confirmDialog, toast, who } from '../ui.js';
 import { store, nav, toggleLike, loadFeed, ensureViewer } from '../data/store.js';
 import { bridge } from '../data/bridge.js';
-import { shareDance, guarded, openOnAbstracts } from './actions.js';
+import { shareDance, guarded, openOnAbstracts, deleteDance } from './actions.js';
 import { ReportSheet } from './more.js';
 import { block } from './profile.js';
 
@@ -42,6 +42,8 @@ export const DanceDetailView = ({ params }) => {
     { label: 'Report', icon: 'flag', onClick: () => sheet(ReportSheet, { title: 'Report dance', onSubmit: () => openOnAbstracts(new URL(dance.post?.url ?? dance.url).pathname) }) },
     { label: `Block ${who(dance.creator)}`, icon: 'nosign', role: 'destructive', onClick: () => confirmDialog({ title: `Block ${who(dance.creator)}?`, message: 'You won’t see their dances or comments. If you share a party, they are removed from it.', actions: [{ label: 'Block', role: 'destructive', onClick: () => block(dance.creator.handle) }, { label: 'Cancel', role: 'cancel' }] }) },
   ]);
+  const mine = viewer?.username === dance.creator.handle;
+  const own = (e) => menu(e.currentTarget.getBoundingClientRect(), [{ label: 'Delete dance', icon: 'trash', role: 'destructive', onClick: () => deleteDance(dance) }]);
   return html`<div class="detail">
     <img class="fill" src=${dance.thumbnail} alt="" style=${p.ready ? 'opacity:0' : ''} />
     <video class="fill" ref=${video} src=${dance.video} playsinline loop muted preload="auto" crossorigin="anonymous"></video>
@@ -60,7 +62,7 @@ export const DanceDetailView = ({ params }) => {
           <${Button} icon="square.and.arrow.up" iconOnly label="Share" onClick=${() => shareDance(dance)} />
           <${Button} icon="bookmark" iconOnly label="Save" onClick=${guarded(async () => { await ensureViewer(); await bridge.call('save', { item: dance.itemKey, saved: true }); toast('Saved'); })} />
           <button class="glass circle44" aria-label=${p.muted ? 'Unmute video' : 'Mute video'} onClick=${p.toggleMuted}><${Icon} name=${p.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} /></button>
-          ${dance.creator.handle && viewer?.username !== dance.creator.handle && html`<button class="glass circle44" aria-label="More" onClick=${safety}><${Icon} name="ellipsis" /></button>`}
+          ${dance.creator.handle && html`<button class="glass circle44" aria-label="More" onClick=${mine ? own : safety}><${Icon} name="ellipsis" /></button>`}
         </div>
       </div>
       <div class="bar glass">

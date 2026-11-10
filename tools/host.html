@@ -20,6 +20,7 @@ const methods = {
     const code = room || Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
     return { room: code, token: user, url: `${q.get('rooms') || 'ws://localhost:8812'}/rooms/copycat/copycat/${code}`, ice: [{ urls: 'stun:stun.cloudflare.com:3478' }], expires: Date.now() / 1000 + 600 };
   },
+  deletePost: ({ post }) => { window.deletedPost = post; return { deleted: true }; },
   share: ({ url }) => { console.log('share', url); return { shared: false }; },
   vote: ({ value }) => ({ value, counts: { up: value ? 1 : 0, down: 0 } }),
   save: ({ saved }) => ({ saved }),
